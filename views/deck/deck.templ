@@ -1,0 +1,52 @@
+package deck
+
+import (
+	"fmt"
+	"webproject/models"
+)
+
+
+templ DeckView(deck models.Deck) {
+	<html>
+		<head>
+			<title>Deck: { deck.Name }</title>
+			<meta charset="UTF-8"/>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
+		</head>
+		<body>
+			<h1>Deck: { deck.Name }</h1>
+			<p>Deck ID: { fmt.Sprintf("%d", deck.ID) }</p>
+
+            <hr/>
+
+            <h2>Actions</h2>
+			<ul>
+				<li>
+					<a href={ templ.URL(fmt.Sprintf("/learning/%d", deck.ID)) }>
+						Start Learning Session
+					</a>
+				</li>
+				<li>
+					<a href={ templ.URL(fmt.Sprintf("/review/%d", deck.ID)) }>
+						Start Review Session
+					</a>
+				</li>
+				<li>
+					<a href={ templ.URL(fmt.Sprintf("/deck/%d/cards", deck.ID)) }>
+						View/Manage Cards
+					</a>
+				</li>
+                <li>
+                    <a href={ templ.URL(fmt.Sprintf("/deck/%d/cards/new", deck.ID)) }>
+                        Add New Card
+                    </a>
+                </li>
+			</ul>
+
+            <hr/>
+			<br/>
+			<a href="/decks">Back to All Decks</a>
+		</body>
+	</html>
+}

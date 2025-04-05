@@ -1,0 +1,19 @@
+package createdeck
+
+templ Load() {
+    <html>
+        <head>
+            <title>Create a deck</title>
+            <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+        </head>
+        <body>
+            <div id="create">
+                <form>
+                <label for="deckname">Deck name</label><br>
+                <input type="text" id="deckname" name="deckname">
+                <button hx-post="/createdeck" hx-trigger="click" hx-target="#create" hx-swap="outerHTML"></button>
+                </form>
+            </div>
+        </body>
+    </html>
+}

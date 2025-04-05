@@ -1,0 +1,29 @@
+package home
+
+templ HomePage(name string) {
+    <html>
+        <head>
+            <title>Go + Gin + Templ</title>
+            <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+        </head>
+        <body>
+            <div id="content">
+                @HomeContent(name)
+            </div>
+        </body>
+    </html>
+}
+
+templ HomeContent(name string) {
+    <div>
+        <h1>Hello, { name }</h1>
+        <button hx-get="/update" hx-target="#content">Update Content</button>
+    </div>
+}
+
+templ UpdatedContent() {
+    <div>
+        <h1>Updated with HTMX! 🚀</h1>
+        <button hx-get="/" hx-target="#content">Reset</button>
+    </div>
+}

@@ -1,0 +1,31 @@
+package decks
+
+import (
+	"webproject/models"
+	"fmt"
+)
+
+templ LoadDecks(decks []models.Deck) {
+	<html>
+        <head>
+            <title>List of decks</title>
+            <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+        </head>
+        <body>
+        <h1>Decks</h1>
+
+     			if len(decks) == 0 {
+				<p>No decks found. <a href="/createdeck">Create one?</a></p>
+			} else {
+				<ul>
+					for _, deck := range decks {
+						<li>
+							<a href={ templ.URL(fmt.Sprintf("/deck/%d", deck.ID)) }>{ deck.Name }</a>
+						</li>
+					}
+				</ul>
+			}
+
+        </body>
+    </html>
+}
