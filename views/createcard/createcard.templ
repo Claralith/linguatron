@@ -18,7 +18,7 @@ templ Load(cards []models.Card, deck models.Deck) {
                 <br>
                 <label for="answer">Answer</label><br>
                 <input type="text" id="answer" name="answer">
-                <button hx-post={string(templ.URL(fmt.Sprintf("/deck/%d/createcard", deck.ID)))} hx-trigger="click" hx-target="#create" hx-swap="outerHTML">Create Card</button>
+                <button hx-post={string(templ.URL(fmt.Sprintf("/deck/%d/createcard", deck.ID)))} hx-trigger="click" hx-target="#cardstable" hx-swap="outerHTML">Create Card</button>
                 </form>
             </div>
 
@@ -64,7 +64,7 @@ templ SuccessMessage(question, answer string) {
 	</div>
 }
 
-templ RenderTable(cards []models.Card, deck models.Deck) {
+templ RenderTable(cards []models.Card) {
 	<table>
             <tr>
             <th>ID</th>

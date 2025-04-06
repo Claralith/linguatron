@@ -304,7 +304,14 @@ func main() {
 
 		(*gormDB).createCard(card)
 
-		createcard.SuccessMessage(card.Question, card.Answer).Render(c.Request.Context(), c.Writer)
+		cards, err := gormDB.getAllCardsByDeckID(uint(deckId))
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid deck ID")
+			log.Print(err)
+			return
+		}
+
+		createcard.RenderTable(cards).Render(c.Request.Context(), c.Writer)
 
 	})
 

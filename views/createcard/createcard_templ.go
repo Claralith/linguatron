@@ -45,7 +45,7 @@ func Load(cards []models.Card, deck models.Deck) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" hx-trigger=\"click\" hx-target=\"#create\" hx-swap=\"outerHTML\">Create Card</button></form></div><div id=\"existingcards\"><h2>Cards</h2><table id=\"cardstable\"><tr><th>ID</th><th>Question</th><th>Answer</th></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" hx-trigger=\"click\" hx-target=\"#cardstable\" hx-swap=\"outerHTML\">Create Card</button></form></div><div id=\"existingcards\"><h2>Cards</h2><table id=\"cardstable\"><tr><th>ID</th><th>Question</th><th>Answer</th></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -222,7 +222,7 @@ func SuccessMessage(question, answer string) templ.Component {
 	})
 }
 
-func RenderTable(cards []models.Card, deck models.Deck) templ.Component {
+func RenderTable(cards []models.Card) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
