@@ -171,6 +171,14 @@ func (g *GormDB) updateReviewCardByID(id uint, correct bool) error {
 	return g.db.Save(&card).Error
 }
 
+func (g *GormDB) updateCardByID(id uint, question string, answer string) error {
+	card, _ := g.getCardByID(id)
+	card.Question = question
+	card.Answer = answer
+
+	return g.db.Save(&card).Error
+}
+
 func IsAnswerCorrectInLowerCase(userAnswer string, databaseAnswer string) bool {
 	return strings.EqualFold(strings.TrimSpace(userAnswer), (strings.TrimSpace(databaseAnswer)))
 }
@@ -298,6 +306,27 @@ func main() {
 
 		createcard.SuccessMessage(card.Question, card.Answer).Render(c.Request.Context(), c.Writer)
 
+	})
+
+	r.PUT("/card/:cardID/edit", func(c *gin.Context) {
+		cardIdStr := c.Param("cardID")
+		cardId, err := strconv.ParseUint(cardIdStr, 10, 32)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid card ID")
+			log.Print(err)
+			return
+		}
+
+		gormDB.updateCardByID(uint(cardId), c.PostForm("question"), c.PostForm("answer"))
+
+		card, err := gormDB.getCardByID(uint(cardId))
+		if err != nil {
+			c.String(http.StatusBadRequest, "card not found")
+			log.Print(err)
+			return
+		}
+
+		createcard.UpdateRow(card).Render(c.Request.Context(), c.Writer)
 	})
 
 	r.GET("/deck/:deckID", func(c *gin.Context) {

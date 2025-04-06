@@ -25,17 +25,31 @@ templ Load(cards []models.Card, deck models.Deck) {
             <div id="existingcards">
             <h2>Cards</h2>
 
-            <table>
+            <table id="cardstable">
             <tr>
             <th>ID</th>
             <th>Question</th>
             <th>Answer</th>
             </tr>
 					for _, card := range cards {
-					<tr>
+					<tr id={"card-" + fmt.Sprint(card.ID)}>
 						<td>{fmt.Sprintf("%d", card.ID)}</td>
-						<td contenteditable="true">{card.Question}</td>
-						<td contenteditable="true">{card.Answer}</td>
+						<td><input name="question"
+						 value={card.Question}
+						 hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
+						 hx-trigger="blur change"
+						 hx-include="closest tr"
+					     hx-target={"#card-" + fmt.Sprint(card.ID)}
+						 hx-swap="outerHTML" /></td>
+
+						<td><input name="answer"
+							value={card.Answer}
+							hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
+							hx-trigger="blur change"
+							hx-include="closest tr"
+							hx-target={"#card-" + fmt.Sprint(card.ID)}
+							hx-swap="outerHTML"
+						 /></td>
 					</tr>
 					}
             </table>
@@ -48,4 +62,57 @@ templ SuccessMessage(question, answer string) {
 	<div id="result">
 		Card with question '{question}' and answer '{answer}' created successfully!
 	</div>
+}
+
+templ RenderTable(cards []models.Card, deck models.Deck) {
+	<table>
+            <tr>
+            <th>ID</th>
+            <th>Question</th>
+            <th>Answer</th>
+            </tr>
+for _, card := range cards {
+<tr id={"card-" + fmt.Sprint(card.ID)}>
+<td>{fmt.Sprintf("%d", card.ID)}</td>
+<td><input name="question"
+value={card.Question}
+hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
+hx-trigger="blur change"
+hx-include="closest tr"
+hx-target={"#card-" + fmt.Sprint(card.ID)}
+hx-swap="outerHTML" /></td>
+
+<td><input name="answer"
+value={card.Answer}
+hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
+hx-trigger="blur change"
+hx-include="closest tr"
+hx-target={"#card-" + fmt.Sprint(card.ID)}
+hx-swap="outerHTML"
+/></td>
+</tr>
+}
+            </table>
+}
+
+templ UpdateRow(card models.Card) {
+	<tr id={"card-" + fmt.Sprint(card.ID)}>
+<td>{fmt.Sprintf("%d", card.ID)}</td>
+<td><input name="question"
+value={card.Question}
+hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
+hx-trigger="blur change"
+hx-include="closest tr"
+hx-target={"#card-" + fmt.Sprint(card.ID)}
+hx-swap="outerHTML" /></td>
+
+<td><input name="answer"
+value={card.Answer}
+hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
+hx-trigger="blur change"
+hx-include="closest tr"
+hx-target={"#card-" + fmt.Sprint(card.ID)}
+hx-swap="outerHTML"
+/></td>
+	</tr>
 }
