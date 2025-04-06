@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"webproject/views/createcard"
 	"webproject/views/createdeck"
 	"webproject/views/deck"
 	"webproject/views/decks"
@@ -120,28 +121,28 @@ func (g *GormDB) selectAllDecks() ([]models.Deck, error) {
 func (g *GormDB) updateLearningCardByID(id uint, correct bool) error {
 	card, _ := g.getCardByID(id)
 
-	now := time.Now().UTC().Format(time.RFC3339Nano)
+	now := time.Now().UTC()
 
-	minuteAfter := time.Now().UTC().Add(time.Minute * time.Duration(1)).Format(time.RFC3339Nano)
+	minuteAfter := now.Add(1 * time.Minute)
 
-	dayAfter := time.Now().UTC().Add(time.Hour * time.Duration(24)).Format(time.RFC3339Nano)
+	dayAfter := now.Add(24 * time.Hour)
 
-	card.LastReviewDate = string(now)
+	card.LastReviewDate = now
 	if correct {
 		card.Correct++
 		if card.Ease > 1 {
 			card.Ease = uint(getNextEaseLevel(int(card.Ease), 1))
 			card.Stage = "review"
-			card.ReviewDueDate = string(dayAfter)
+			card.ReviewDueDate = dayAfter
 
 		} else {
 			card.Ease = uint(getNextEaseLevel(int(card.Ease), 2))
-			card.ReviewDueDate = string(minuteAfter)
+			card.ReviewDueDate = minuteAfter
 		}
 	} else {
 		card.Incorrect++
 		card.Ease = 1
-		card.ReviewDueDate = string(minuteAfter)
+		card.ReviewDueDate = minuteAfter
 	}
 	return g.db.Save(&card).Error
 }
@@ -149,18 +150,18 @@ func (g *GormDB) updateLearningCardByID(id uint, correct bool) error {
 func (g *GormDB) updateReviewCardByID(id uint, correct bool) error {
 	card, _ := g.getCardByID(id)
 
-	now := time.Now().UTC().Format(time.RFC3339Nano)
+	now := time.Now().UTC()
 
-	minuteAfter := time.Now().UTC().Add(time.Minute * time.Duration(1)).Format(time.RFC3339Nano)
+	minuteAfter := now.Add(time.Minute * time.Duration(1))
 
-	card.LastReviewDate = string(now)
+	card.LastReviewDate = now
 	if correct {
 		card.Correct++
 		card.ReviewDueDate = createNextReviewDueDate(int(card.Ease))
 		card.Ease = uint(getNextEaseLevel(int(card.Ease), 2))
 	} else {
 		card.Incorrect++
-		card.ReviewDueDate = string(minuteAfter)
+		card.ReviewDueDate = minuteAfter
 		if card.Ease != 1 {
 			card.Lapses++
 			card.Ease = 1
@@ -173,41 +174,22 @@ func (g *GormDB) updateReviewCardByID(id uint, correct bool) error {
 func IsAnswerCorrectInLowerCase(userAnswer string, databaseAnswer string) bool {
 	return strings.EqualFold(strings.TrimSpace(userAnswer), (strings.TrimSpace(databaseAnswer)))
 }
+
 func getMostDueCard(cards []models.Card) (models.Card, error) {
-
-	var mostDueCard models.Card
-	if len(cards) > 0 {
-		mostDueCard = cards[0]
-	}
-
-	if len(cards) > 1 {
-		mostDueCardTime, err := time.Parse(time.RFC3339Nano, cards[0].ReviewDueDate)
-		if err != nil {
-			fmt.Print(err.Error())
-			return models.Card{}, err
-		}
-
-		for i := 0; i < len(cards); i++ {
-			currentCardDueDate, err := time.Parse(time.RFC3339Nano, cards[i].ReviewDueDate)
-			if err != nil {
-				fmt.Print(err.Error())
-				return models.Card{}, err
-			}
-			if currentCardDueDate.Before(mostDueCardTime) {
-				mostDueCardTime = currentCardDueDate
-				mostDueCard = cards[i]
-			}
-
-		}
-		return mostDueCard, err
-	} else if len(cards) == 1 {
-		return mostDueCard, nil
-	} else {
+	if len(cards) == 0 {
 		return models.Card{}, fmt.Errorf("no cards")
 	}
 
-}
+	mostDueCard := cards[0]
 
+	for i := 1; i < len(cards); i++ {
+		if cards[i].ReviewDueDate.Before(mostDueCard.ReviewDueDate) {
+			mostDueCard = cards[i]
+		}
+	}
+
+	return mostDueCard, nil
+}
 func isCardsNotEmpty(cards []models.Card) bool {
 	if len(cards) > 0 {
 		return true
@@ -222,16 +204,14 @@ func getNextEaseLevel(currentEase int, growthfactor float64) int {
 	return nextEase
 }
 
-func createNextReviewDueDate(ease int) string {
+func createNextReviewDueDate(ease int) time.Time {
 
 	t := time.Now().UTC()
 	hours := ease * 24
 	duration := time.Duration(hours) * time.Hour
 
-	t = t.Add(duration)
+	return t.Add(duration)
 
-	formattedTime := t.Format(time.RFC3339Nano)
-	return string(formattedTime)
 }
 
 func main() {
@@ -263,6 +243,61 @@ func main() {
 	r.POST("/createdeck", func(c *gin.Context) {
 		deckname := c.PostForm("deckname")
 		(*gormDB).createDeck(deckname)
+	})
+
+	r.GET("/deck/:deckID/createcard", func(c *gin.Context) {
+
+		deckIdStr := c.Param("deckID")
+		deckId, err := strconv.ParseUint(deckIdStr, 10, 32)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid deck ID")
+			log.Print(err)
+			return
+		}
+
+		deck, err := (*gormDB).getDeckByID(uint(deckId))
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.String(http.StatusNotFound, "deck not found")
+			} else {
+				c.String(http.StatusInternalServerError, "error fetching deck")
+			}
+		}
+
+		cards, err := gormDB.getAllCardsByDeckID(uint(deckId))
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.String(http.StatusNotFound, "cards not found")
+			} else {
+				c.String(http.StatusInternalServerError, "error fetching cards")
+			}
+		}
+
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		createcard.Load(cards, deck).Render(c.Request.Context(), c.Writer)
+	})
+
+	r.POST("/deck/:deckID/createcard", func(c *gin.Context) {
+
+		deckIdStr := c.Param("deckID")
+		deckId, err := strconv.ParseUint(deckIdStr, 10, 32)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid deck ID")
+			log.Print(err)
+			return
+		}
+
+		var card models.Card
+		card.DeckID = uint(deckId)
+		card.Question = c.PostForm("question")
+		card.Answer = c.PostForm("answer")
+		card.CardCreated = time.Now().UTC()
+		card.ReviewDueDate = time.Now().UTC()
+
+		(*gormDB).createCard(card)
+
+		createcard.SuccessMessage(card.Question, card.Answer).Render(c.Request.Context(), c.Writer)
+
 	})
 
 	r.GET("/deck/:deckID", func(c *gin.Context) {

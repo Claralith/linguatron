@@ -38,7 +38,7 @@ templ DeckView(deck models.Deck) {
 					</a>
 				</li>
                 <li>
-                    <a href={ templ.URL(fmt.Sprintf("/deck/%d/cards/new", deck.ID)) }>
+                    <a href={ templ.URL(fmt.Sprintf("/deck/%d/createcard", deck.ID)) }>
                         Add New Card
                     </a>
                 </li>

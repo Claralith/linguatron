@@ -104,7 +104,7 @@ func DeckView(deck models.Deck) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var8 templ.SafeURL = templ.URL(fmt.Sprintf("/deck/%d/cards/new", deck.ID))
+		var templ_7745c5c3_Var8 templ.SafeURL = templ.URL(fmt.Sprintf("/deck/%d/createcard", deck.ID))
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var8)))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
