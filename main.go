@@ -179,6 +179,15 @@ func (g *GormDB) updateCardByID(id uint, question string, answer string) error {
 	return g.db.Save(&card).Error
 }
 
+func (g *GormDB) deleteCardByID(id uint) error {
+	card, err := g.getCardByID(id)
+	if err != nil {
+		return err
+	}
+
+	return g.db.Delete(card).Error
+}
+
 func IsAnswerCorrectInLowerCase(userAnswer string, databaseAnswer string) bool {
 	return strings.EqualFold(strings.TrimSpace(userAnswer), (strings.TrimSpace(databaseAnswer)))
 }
@@ -305,6 +314,36 @@ func main() {
 		(*gormDB).createCard(card)
 
 		cards, err := gormDB.getAllCardsByDeckID(uint(deckId))
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid deck ID")
+			log.Print(err)
+			return
+		}
+
+		createcard.RenderTable(cards).Render(c.Request.Context(), c.Writer)
+
+	})
+
+	r.DELETE("/card/:cardID/delete", func(c *gin.Context) {
+
+		cardIdStr := c.Param("cardID")
+		cardId, err := strconv.ParseUint(cardIdStr, 10, 32)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid card ID")
+			log.Print(err)
+			return
+		}
+
+		card, err := gormDB.getCardByID(uint(cardId))
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid card ID")
+			log.Print(err)
+			return
+		}
+
+		gormDB.deleteCardByID(card.ID)
+
+		cards, err := gormDB.getAllCardsByDeckID(uint(card.DeckID))
 		if err != nil {
 			c.String(http.StatusBadRequest, "Invalid deck ID")
 			log.Print(err)

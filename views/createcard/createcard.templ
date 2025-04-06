@@ -49,7 +49,13 @@ templ Load(cards []models.Card, deck models.Deck) {
 							hx-include="closest tr"
 							hx-target={"#card-" + fmt.Sprint(card.ID)}
 							hx-swap="outerHTML"
-						 /></td>
+						 />
+							<td>
+								<button hx-delete={string(templ.URL(fmt.Sprintf("/card/%d/delete", card.ID)))}
+									hx-target={"#cardstable"}
+									hx-swap="outerHTML"
+									hx-confirm="Are you sure you want to delete this card?">Delete</button>
+							</td>	</td>
 					</tr>
 					}
             </table>
@@ -58,41 +64,41 @@ templ Load(cards []models.Card, deck models.Deck) {
     </html>
 }
 
-templ SuccessMessage(question, answer string) {
-	<div id="result">
-		Card with question '{question}' and answer '{answer}' created successfully!
-	</div>
-}
-
 templ RenderTable(cards []models.Card) {
-	<table>
-            <tr>
-            <th>ID</th>
-            <th>Question</th>
-            <th>Answer</th>
-            </tr>
-for _, card := range cards {
-<tr id={"card-" + fmt.Sprint(card.ID)}>
-<td>{fmt.Sprintf("%d", card.ID)}</td>
-<td><input name="question"
-value={card.Question}
-hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
-hx-trigger="blur change"
-hx-include="closest tr"
-hx-target={"#card-" + fmt.Sprint(card.ID)}
-hx-swap="outerHTML" /></td>
+    <table id="cardstable">
+    <tr>
+    <th>ID</th>
+    <th>Question</th>
+    <th>Answer</th>
+    </tr>
+					for _, card := range cards {
+					<tr id={"card-" + fmt.Sprint(card.ID)}>
+						<td>{fmt.Sprintf("%d", card.ID)}</td>
+						<td><input name="question"
+						 value={card.Question}
+						 hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
+						 hx-trigger="blur change"
+						 hx-include="closest tr"
+					     hx-target={"#card-" + fmt.Sprint(card.ID)}
+						 hx-swap="outerHTML" /></td>
 
-<td><input name="answer"
-value={card.Answer}
-hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
-hx-trigger="blur change"
-hx-include="closest tr"
-hx-target={"#card-" + fmt.Sprint(card.ID)}
-hx-swap="outerHTML"
-/></td>
-</tr>
-}
-            </table>
+						<td><input name="answer"
+							value={card.Answer}
+							hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
+							hx-trigger="blur change"
+							hx-include="closest tr"
+							hx-target={"#card-" + fmt.Sprint(card.ID)}
+							hx-swap="outerHTML"
+						 />
+							<td>
+								<button hx-delete={string(templ.URL(fmt.Sprintf("/card/%d/delete", card.ID)))}
+									hx-target={"#cardstable"}
+									hx-swap="outerHTML"
+									hx-confirm="Are you sure you want to delete this card?">Delete</button>
+							</td>	</td>
+					</tr>
+					}
+    </table>
 }
 
 templ UpdateRow(card models.Card) {
