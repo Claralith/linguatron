@@ -23,7 +23,7 @@ templ DeckView(deck models.Deck) {
             <h2>Actions</h2>
 			<ul>
 				<li>
-					<a href={ templ.URL(fmt.Sprintf("/learning/%d", deck.ID)) }>
+					<a href={ templ.URL(fmt.Sprintf("/deck/%d/learning", deck.ID)) }>
 						Start Learning Session
 					</a>
 				</li>

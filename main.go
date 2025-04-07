@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand/v2"
 	"net/http"
 	"strconv"
 	"strings"
@@ -65,7 +66,7 @@ func (g *GormDB) getAllCardsByDeckID(id uint) ([]models.Card, error) {
 	return cards, err
 }
 
-func (g *GormDB) getRandomCardsByDeckID(deckID uint, cardID uint) ([]models.Card, error) {
+func (g *GormDB) getShuffledChoicesForCard(deckID uint, mostDueCard models.Card) ([]models.Card, error) {
 	var count int64
 	cardCountError := g.db.Model(&models.Card{}).Where("deck_id = ?", deckID).Count(&count).Error
 	if cardCountError != nil {
@@ -74,18 +75,29 @@ func (g *GormDB) getRandomCardsByDeckID(deckID uint, cardID uint) ([]models.Card
 
 	var limit int
 
-	if count >= 3 && count < 5 {
-		limit = 3
+	if count > 1 && count < 5 {
+		limit = int(count - 1) //as many false answers as possible
 	} else if count >= 5 {
 		limit = 5
 	} else {
 		limit = 0
 	}
 
-	var cards []models.Card
-	err := g.db.Where("deck_id = ? AND id != ?", deckID, cardID).Order("RANDOM()").Limit(limit).Find(&cards).Error
+	var falseAnswers []models.Card
+	err := g.db.Where("deck_id = ? AND id != ?", deckID, mostDueCard.ID).
+		Order("RANDOM()").
+		Limit(limit).
+		Find(&falseAnswers).Error
+	if err != nil {
+		return nil, err
+	}
 
-	return cards, err
+	falseandCorrect := append(falseAnswers, mostDueCard)
+	rand.Shuffle(len(falseandCorrect), func(i, j int) {
+		falseandCorrect[i], falseandCorrect[j] = falseandCorrect[j], falseandCorrect[i]
+	})
+
+	return falseandCorrect, err
 }
 
 func (g *GormDB) getLearningCardsByDeckID(id uint) ([]models.Card, error) {
@@ -375,6 +387,90 @@ func main() {
 		createcard.UpdateRow(card).Render(c.Request.Context(), c.Writer)
 	})
 
+	r.GET("/deck/:deckID/learning", func(c *gin.Context) {
+		deckIdStr := c.Param("deckID")
+		deckId, err := strconv.ParseUint(deckIdStr, 10, 32)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid deck ID")
+			log.Print(err)
+			return
+		}
+
+		deck, err := (*gormDB).getDeckByID(uint(deckId))
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.String(http.StatusNotFound, "deck not found")
+			} else {
+				c.String(http.StatusInternalServerError, "error fetching deck")
+			}
+		}
+
+		learningCards, err := gormDB.getLearningCardsByDeckID(deck.ID)
+		if err != nil {
+			c.String(http.StatusBadRequest, "no learning cards?")
+			log.Print(err)
+		}
+
+		mostDueCard, err := getMostDueCard(learningCards)
+		if err != nil {
+			c.String(http.StatusBadRequest, "not enough learning cards?")
+			log.Print(err)
+		}
+
+		randomCards, err := gormDB.getShuffledChoicesForCard(deck.ID, mostDueCard)
+		if err != nil {
+			c.String(http.StatusBadRequest, "failed to get random cards")
+			log.Print(err)
+		}
+
+		learning.InitialContent(mostDueCard, randomCards).Render(c.Request.Context(), c.Writer)
+	})
+
+	r.POST("/card/:cardID/learning", func(c *gin.Context) {
+		cardIdStr := c.Param("cardID")
+		cardId, err := strconv.ParseUint(cardIdStr, 10, 32)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid card ID")
+			log.Print(err)
+			return
+		}
+
+		card, err := gormDB.getCardByID(uint(cardId))
+		if err != nil {
+			c.String(http.StatusBadRequest, "card not found")
+			log.Print(err)
+			return
+		}
+
+		correct := IsAnswerCorrectInLowerCase(c.PostForm("textanswer"), card.Answer)
+
+		gormDB.updateLearningCardByID(card.ID, correct)
+
+		learningCards, err := gormDB.getLearningCardsByDeckID(card.DeckID)
+		if err != nil {
+			c.String(http.StatusBadRequest, "invalid deck id?")
+			log.Print(err)
+			return
+		}
+
+		mostDueCard, err := getMostDueCard(learningCards)
+		if err != nil {
+			c.String(http.StatusBadRequest, "invalid deck id?")
+			log.Print(err)
+			return
+		}
+
+		randomCards, err := gormDB.getShuffledChoicesForCard(card.DeckID, mostDueCard)
+		if err != nil {
+			c.String(http.StatusBadRequest, "failed to get random cards")
+			log.Print(err)
+		}
+
+		fmt.Print("text answer form's text was: " + c.PostForm("textanswer"))
+
+		learning.InitialContent(mostDueCard, randomCards).Render(c.Request.Context(), c.Writer)
+	})
+
 	r.GET("/deck/:deckID", func(c *gin.Context) {
 		deckIdStr := c.Param("deckID")
 		deckId, err := strconv.ParseUint(deckIdStr, 10, 32)
@@ -408,10 +504,6 @@ func main() {
 
 		log.Print("err not nil")
 		decks.LoadDecks(selectedDecks).Render(c.Request.Context(), c.Writer)
-	})
-
-	r.GET("/learning", func(c *gin.Context) {
-		learning.InitialContent("test").Render(c.Request.Context(), c.Writer)
 	})
 
 	log.Println("Server starting on http://localhost:3030")

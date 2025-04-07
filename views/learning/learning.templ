@@ -1,6 +1,9 @@
 package learning
 
-templ InitialContent(name string) {
+import "webproject/models"
+import "fmt"
+
+templ InitialContent(question models.Card, questions []models.Card) {
     <html>
         <head>
             <title>Go + Gin + Templ</title>
@@ -8,22 +11,33 @@ templ InitialContent(name string) {
         </head>
         <body>
             <div id="content">
-                @NoContent(name)
+        <h2>Learning</h2>
+                @Question(question, questions)
+                @TextInput(question)
+                @MultipleChoice(question, questions)
             </div>
         </body>
     </html>
 }
 
-templ NoContent(name string) {
-    <div>
-        <h1>Hello, { name }</h1>
-        <button hx-get="/update" hx-target="#content">Update Content</button>
-    </div>
+
+templ Question(question models.Card, questions []models.Card) {
+	<h2>{question.Question}</h2>
 }
 
-templ UpdatedContent() {
-    <div>
-        <h1>Updated with HTMX! 🚀</h1>
-        <button hx-get="/" hx-target="#content">Reset</button>
-    </div>
+templ TextInput(question models.Card) {
+	<div id="textinput">
+			<label for="textanswer">Your Answer</label>
+			<input type="text" id="textanswer" name="textanswer" autocomplete="off" hx-post={string(templ.URL(fmt.Sprintf("/card/%d/learning", question.ID)))} hx-trigger="keyup[keyCode==13]" hx-target="#content" hx-swap="outerHTML">
+	</div>
+}
+
+templ MultipleChoice(question models.Card, questions []models.Card) {
+	<div id="multiplechoice">
+	for _, question2 := range questions {
+		<button value={question2.Answer} hx-post={string(templ.URL(fmt.Sprintf("/card/%d/learning", question.ID)))}
+			hx-target={"#content"}
+			hx-swap="outerHTML" name="textanswer" type="button">{question2.Answer}</button>
+	}
+	</div>
 }
