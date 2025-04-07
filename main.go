@@ -403,9 +403,9 @@ func main() {
 		}
 
 		learningCards, err := gormDB.getLearningCardsByDeckID(deck.ID)
-		if err != nil {
-			c.String(http.StatusBadRequest, "no learning cards?")
-			log.Print(err)
+		if err != nil || len(learningCards) == 0 {
+			learning.NoneLeft().Render(c.Request.Context(), c.Writer)
+			return
 		}
 
 		mostDueCard, err := getMostDueCard(learningCards)
@@ -444,9 +444,8 @@ func main() {
 		gormDB.updateLearningCardByID(card.ID, correct)
 
 		learningCards, err := gormDB.getLearningCardsByDeckID(card.DeckID)
-		if err != nil {
-			c.String(http.StatusBadRequest, "invalid deck id?")
-			log.Print(err)
+		if err != nil || len(learningCards) == 0 {
+			learning.NoneLeft().Render(c.Request.Context(), c.Writer)
 			return
 		}
 
@@ -486,10 +485,10 @@ func main() {
 			}
 		}
 
-		reviewCards, err := gormDB.getReviewCardsByDeckID(deck.ID)
-		if err != nil {
-			c.String(http.StatusBadRequest, "no review cards?")
-			log.Print(err)
+		reviewCards, err := gormDB.getDueReviewCardsByDeckID(deck.ID)
+		if err != nil || len(reviewCards) == 0 {
+			review.NoneLeft().Render(c.Request.Context(), c.Writer)
+			return
 		}
 
 		mostDueCard, err := getMostDueCard(reviewCards)
@@ -527,10 +526,9 @@ func main() {
 
 		gormDB.updateReviewCardByID(card.ID, correct)
 
-		reviewCards, err := gormDB.getReviewCardsByDeckID(card.DeckID)
-		if err != nil {
-			c.String(http.StatusBadRequest, "invalid deck id?")
-			log.Print(err)
+		reviewCards, err := gormDB.getDueReviewCardsByDeckID(card.DeckID)
+		if err != nil || len(reviewCards) == 0 {
+			review.NoneLeft().Render(c.Request.Context(), c.Writer)
 			return
 		}
 

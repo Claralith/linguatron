@@ -41,3 +41,12 @@ templ MultipleChoice(question models.Card, questions []models.Card) {
 	}
 	</div>
 }
+
+
+templ NoneLeft() {
+    <div id="content">
+        <h2>You're done!</h2>
+        <p>You've completed all learning cards in this deck for now 🎉</p>
+        <a href="/decks">← Back to Decks</a>
+    </div>
+}
