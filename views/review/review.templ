@@ -1,0 +1,43 @@
+package review
+
+import "webproject/models"
+import "fmt"
+
+templ InitialContent(question models.Card, questions []models.Card) {
+    <html>
+        <head>
+            <title>Go + Gin + Templ</title>
+            <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+        </head>
+        <body>
+            <div id="content">
+        <h2>Review</h2>
+                @Question(question, questions)
+                @TextInput(question)
+                @MultipleChoice(question, questions)
+            </div>
+        </body>
+    </html>
+}
+
+
+templ Question(question models.Card, questions []models.Card) {
+	<h2>{question.Question}</h2>
+}
+
+templ TextInput(question models.Card) {
+	<div id="textinput">
+			<label for="textanswer">Your Answer</label>
+			<input type="text" id="textanswer" name="textanswer" autocomplete="off" hx-post={string(templ.URL(fmt.Sprintf("/card/%d/review", question.ID)))} hx-trigger="keyup[keyCode==13]" hx-target="#content" hx-swap="outerHTML">
+	</div>
+}
+
+templ MultipleChoice(question models.Card, questions []models.Card) {
+	<div id="multiplechoice">
+	for _, question2 := range questions {
+		<button value={question2.Answer} hx-post={string(templ.URL(fmt.Sprintf("/card/%d/review", question.ID)))}
+			hx-target={"#content"}
+			hx-swap="outerHTML" name="textanswer" type="button">{question2.Answer}</button>
+	}
+	</div>
+}

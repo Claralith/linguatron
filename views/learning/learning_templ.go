@@ -84,7 +84,7 @@ func Question(question models.Card, questions []models.Card) templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(question.Question)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/learning/learning.templ`, Line: 27, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/learning/learning.templ`, Line: 25, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -126,7 +126,7 @@ func TextInput(question models.Card) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(string(templ.URL(fmt.Sprintf("/card/%d/learning", question.ID))))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/learning/learning.templ`, Line: 33, Col: 148}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/learning/learning.templ`, Line: 31, Col: 148}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -173,7 +173,7 @@ func MultipleChoice(question models.Card, questions []models.Card) templ.Compone
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(question2.Answer)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/learning/learning.templ`, Line: 40, Col: 33}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/learning/learning.templ`, Line: 38, Col: 33}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -186,7 +186,7 @@ func MultipleChoice(question models.Card, questions []models.Card) templ.Compone
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(string(templ.URL(fmt.Sprintf("/card/%d/learning", question.ID))))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/learning/learning.templ`, Line: 40, Col: 108}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/learning/learning.templ`, Line: 38, Col: 108}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -199,7 +199,7 @@ func MultipleChoice(question models.Card, questions []models.Card) templ.Compone
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs("#content")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/learning/learning.templ`, Line: 41, Col: 24}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/learning/learning.templ`, Line: 39, Col: 24}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -212,7 +212,7 @@ func MultipleChoice(question models.Card, questions []models.Card) templ.Compone
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(question2.Answer)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/learning/learning.templ`, Line: 42, Col: 72}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/learning/learning.templ`, Line: 40, Col: 72}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {

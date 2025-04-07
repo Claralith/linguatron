@@ -16,6 +16,7 @@ import (
 	"webproject/views/decks"
 	"webproject/views/home"
 	"webproject/views/learning"
+	"webproject/views/review"
 
 	"webproject/models"
 
@@ -469,6 +470,88 @@ func main() {
 		fmt.Print("text answer form's text was: " + c.PostForm("textanswer"))
 
 		learning.InitialContent(mostDueCard, randomCards).Render(c.Request.Context(), c.Writer)
+	})
+
+	r.GET("/deck/:deckID/review", func(c *gin.Context) {
+		deckIdStr := c.Param("deckID")
+		deckId, err := strconv.ParseUint(deckIdStr, 10, 32)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid deck ID")
+			log.Print(err)
+			return
+		}
+
+		deck, err := (*gormDB).getDeckByID(uint(deckId))
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.String(http.StatusNotFound, "deck not found")
+			} else {
+				c.String(http.StatusInternalServerError, "error fetching deck")
+			}
+		}
+
+		reviewCards, err := gormDB.getReviewCardsByDeckID(deck.ID)
+		if err != nil {
+			c.String(http.StatusBadRequest, "no review cards?")
+			log.Print(err)
+		}
+
+		mostDueCard, err := getMostDueCard(reviewCards)
+		if err != nil {
+			c.String(http.StatusBadRequest, "not enough review cards?")
+			log.Print(err)
+		}
+
+		randomCards, err := gormDB.getShuffledChoicesForCard(deck.ID, mostDueCard)
+		if err != nil {
+			c.String(http.StatusBadRequest, "failed to get random cards")
+			log.Print(err)
+		}
+
+		review.InitialContent(mostDueCard, randomCards).Render(c.Request.Context(), c.Writer)
+	})
+
+	r.POST("/card/:cardID/review", func(c *gin.Context) {
+		cardIdStr := c.Param("cardID")
+		cardId, err := strconv.ParseUint(cardIdStr, 10, 32)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid card ID")
+			log.Print(err)
+			return
+		}
+
+		card, err := gormDB.getCardByID(uint(cardId))
+		if err != nil {
+			c.String(http.StatusBadRequest, "card not found")
+			log.Print(err)
+			return
+		}
+
+		correct := IsAnswerCorrectInLowerCase(c.PostForm("textanswer"), card.Answer)
+
+		gormDB.updateReviewCardByID(card.ID, correct)
+
+		reviewCards, err := gormDB.getReviewCardsByDeckID(card.DeckID)
+		if err != nil {
+			c.String(http.StatusBadRequest, "invalid deck id?")
+			log.Print(err)
+			return
+		}
+
+		mostDueCard, err := getMostDueCard(reviewCards)
+		if err != nil {
+			c.String(http.StatusBadRequest, "invalid deck id?")
+			log.Print(err)
+			return
+		}
+
+		randomCards, err := gormDB.getShuffledChoicesForCard(card.DeckID, mostDueCard)
+		if err != nil {
+			c.String(http.StatusBadRequest, "failed to get random cards")
+			log.Print(err)
+		}
+
+		review.InitialContent(mostDueCard, randomCards).Render(c.Request.Context(), c.Writer)
 	})
 
 	r.GET("/deck/:deckID", func(c *gin.Context) {
