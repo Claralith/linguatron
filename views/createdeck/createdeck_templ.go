@@ -29,7 +29,7 @@ func Load() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<html><head><title>Create a deck</title><script src=\"https://unpkg.com/htmx.org@1.9.10\"></script></head><body><div id=\"create\"><form><label for=\"deckname\">Deck name</label><br><input type=\"text\" id=\"deckname\" name=\"deckname\"> <button hx-post=\"/createdeck\" hx-trigger=\"click\" hx-target=\"#create\" hx-swap=\"outerHTML\"></button></form></div></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<html><head><title>Create a deck</title><script src=\"https://unpkg.com/htmx.org@1.9.10\"></script></head><body><div id=\"create\"><form><label for=\"deckname\">Deck name</label><br><input type=\"text\" id=\"deckname\" name=\"deckname\"> <button hx-post=\"/createdeck\" hx-trigger=\"click\" hx-target=\"#create\" hx-swap=\"outerHTML\">Submit</button></form></div></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

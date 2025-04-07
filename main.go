@@ -258,12 +258,8 @@ func main() {
 
 		c.Header("Content-Type", "text/html; charset=utf-8")
 
-		home.HomePage("World").Render(c.Request.Context(), c.Writer)
+		home.HomePage().Render(c.Request.Context(), c.Writer)
 
-	})
-
-	r.GET("/update", func(c *gin.Context) {
-		home.UpdatedContent().Render(c.Request.Context(), c.Writer)
 	})
 
 	r.GET("/createdeck", func(c *gin.Context) {
@@ -580,12 +576,10 @@ func main() {
 	r.GET("/decks", func(c *gin.Context) {
 
 		selectedDecks, err := (*gormDB).selectAllDecks()
-		log.Print("after selectAllDecks")
 		if err != nil {
 			log.Print(err)
 		}
 
-		log.Print("err not nil")
 		decks.LoadDecks(selectedDecks).Render(c.Request.Context(), c.Writer)
 	})
 
