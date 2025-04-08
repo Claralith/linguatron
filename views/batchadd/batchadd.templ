@@ -1,0 +1,53 @@
+package batchadd
+
+import "fmt"
+import "webproject/models"
+
+templ Page(deck models.Deck, numberOfCards int) {
+	<html>
+		<head>
+			<title>Batch Add Cards - {deck.Name}</title>
+			<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+		</head>
+		<body>
+		<div id="content">
+			<h2>Batch Add Cards to "{deck.Name}"</h2>
+
+			<p>Enter one card per line, using <code>|;</code> to separate question and answer.</p>
+
+			<p><strong>Example:</strong></p>
+			<pre>
+				氷|;ice<br>
+				火|;fire<br>
+				火山|;volcano
+			</pre>
+
+			<textarea
+				id="batchinput"
+				name="batchinput"
+				rows="10"
+				cols="80"
+				placeholder="question|;answer"
+			></textarea>
+
+			<br><br>
+
+			<button
+				hx-post={string(templ.URL(fmt.Sprintf("/deck/%d/batchadd", deck.ID)))}
+				hx-include="#batchinput"
+				hx-target="#content"
+				hx-swap="innerHTML"
+			>
+				Add Cards
+			</button>
+
+			@Added(numberOfCards)
+
+			</div>
+		</body>
+	</html>
+}
+
+templ Added(numberOfCards int) {
+	<div id="batchresult">{string(fmt.Sprintf("Number of cards added: %d", numberOfCards))}</div>
+}

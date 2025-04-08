@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"webproject/views/batchadd"
 	"webproject/views/createcard"
 	"webproject/views/createdeck"
 	"webproject/views/deck"
@@ -331,6 +332,70 @@ func main() {
 
 		createcard.RenderTable(cards).Render(c.Request.Context(), c.Writer)
 
+	})
+
+	r.GET("/deck/:deckID/batchadd", func(c *gin.Context) {
+		deckIdStr := c.Param("deckID")
+		deckId, err := strconv.ParseUint(deckIdStr, 10, 32)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid deck ID")
+			log.Print(err)
+			return
+		}
+
+		deck, err := (*gormDB).getDeckByID(uint(deckId))
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.String(http.StatusNotFound, "deck not found")
+			} else {
+				c.String(http.StatusInternalServerError, "error fetching deck")
+			}
+		}
+
+		batchadd.Page(deck, 0).Render(c.Request.Context(), c.Writer)
+
+	})
+
+	r.POST("/deck/:deckID/batchadd", func(c *gin.Context) {
+		deckIdStr := c.Param("deckID")
+		deckId, err := strconv.ParseUint(deckIdStr, 10, 32)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid deck ID")
+			log.Print(err)
+			return
+		}
+
+		deck, err := (*gormDB).getDeckByID(uint(deckId))
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.String(http.StatusNotFound, "deck not found")
+			} else {
+				c.String(http.StatusInternalServerError, "error fetching deck")
+			}
+		}
+
+		userInput := c.PostForm("batchinput")
+		lines := strings.Split(userInput, "\n")
+
+		var NumberOfCards int
+
+		for _, line := range lines {
+			parts := strings.Split(line, "|;")
+			if len(parts) != 2 {
+				continue
+			}
+			card := models.Card{
+				DeckID:        uint(deckId),
+				Question:      strings.TrimSpace(parts[0]),
+				Answer:        strings.TrimSpace(parts[1]),
+				CardCreated:   time.Now().UTC(),
+				ReviewDueDate: time.Now().UTC(),
+			}
+			gormDB.createCard(card)
+			NumberOfCards++
+		}
+
+		batchadd.Page(deck, NumberOfCards).Render(c.Request.Context(), c.Writer)
 	})
 
 	r.DELETE("/card/:cardID/delete", func(c *gin.Context) {
