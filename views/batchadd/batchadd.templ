@@ -1,16 +1,21 @@
 package batchadd
 
-import "fmt"
-import "webproject/models"
+import ("fmt"
+	"webproject/models"
+	"webproject/components")
 
 templ Page(deck models.Deck, numberOfCards int) {
 	<html>
 		<head>
 			<title>Batch Add Cards - {deck.Name}</title>
-			<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+			@components.Imports()
 		</head>
 		<body>
 		<div id="content">
+
+		@components.Navbar()
+
+		<a href={ templ.URL(fmt.Sprintf("/deck/%d", deck.ID)) }>Back to {deck.Name}</a>
 			<h2>Batch Add Cards to "{deck.Name}"</h2>
 
 			<p>Enter one card per line, using <code>|;</code> to separate question and answer.</p>

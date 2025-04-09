@@ -1,12 +1,15 @@
 package createdeck
 
+import "webproject/components"
+
 templ Load() {
     <html>
         <head>
             <title>Create a deck</title>
-            <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+            @components.Imports()
         </head>
         <body>
+        @components.Navbar()
             <div id="create">
                 <form>
                 <label for="deckname">Deck name</label><br>

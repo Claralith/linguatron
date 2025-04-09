@@ -5,13 +5,16 @@ import (
 	"fmt"
 )
 
+import "webproject/components"
+
 templ LoadDecks(decks []models.Deck) {
 	<html>
         <head>
             <title>List of decks</title>
-            <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+            @components.Imports()
         </head>
         <body>
+        @components.Navbar()
         <h1>Decks</h1>
 
      			if len(decks) == 0 {
@@ -25,9 +28,6 @@ templ LoadDecks(decks []models.Deck) {
 					}
 				</ul>
 			}
-
-			<a href="/createdeck">Create deck</a>
-
         </body>
     </html>
 }

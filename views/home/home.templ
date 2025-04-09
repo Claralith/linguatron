@@ -1,14 +1,18 @@
 package home
 
+import "webproject/components"
+
 templ HomePage() {
     <html>
         <head>
             <title>Go + Gin + Templ</title>
-            <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+            @components.Imports()
         </head>
         <body>
+        @components.Navbar()
             <div id="content">
-                <a href="/decks">Decks</a>
+            <h1>Welcome to Linguatron</h1>
+            <pre>Go to <a href="/decks">Decks</a> to get started </pre>
             </div>
         </body>
     </html>

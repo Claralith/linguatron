@@ -255,6 +255,8 @@ func main() {
 
 	r := gin.Default()
 
+	r.Static("/static", "./static")
+
 	r.GET("/", func(c *gin.Context) {
 
 		c.Header("Content-Type", "text/html; charset=utf-8")
@@ -469,7 +471,7 @@ func main() {
 
 		learningCards, err := gormDB.getLearningCardsByDeckID(deck.ID)
 		if err != nil || len(learningCards) == 0 {
-			learning.NoneLeft().Render(c.Request.Context(), c.Writer)
+			learning.NoneLeft(deck).Render(c.Request.Context(), c.Writer)
 			return
 		}
 
@@ -485,7 +487,7 @@ func main() {
 			log.Print(err)
 		}
 
-		learning.InitialContent(mostDueCard, randomCards).Render(c.Request.Context(), c.Writer)
+		learning.InitialContent(mostDueCard, randomCards, deck).Render(c.Request.Context(), c.Writer)
 	})
 
 	r.POST("/card/:cardID/learning", func(c *gin.Context) {
@@ -508,9 +510,18 @@ func main() {
 
 		gormDB.updateLearningCardByID(card.ID, correct)
 
+		deck, err := (*gormDB).getDeckByID(card.DeckID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.String(http.StatusNotFound, "deck not found")
+			} else {
+				c.String(http.StatusInternalServerError, "error fetching deck")
+			}
+		}
+
 		learningCards, err := gormDB.getLearningCardsByDeckID(card.DeckID)
 		if err != nil || len(learningCards) == 0 {
-			learning.NoneLeft().Render(c.Request.Context(), c.Writer)
+			learning.NoneLeft(deck).Render(c.Request.Context(), c.Writer)
 			return
 		}
 
@@ -529,7 +540,7 @@ func main() {
 
 		fmt.Print("text answer form's text was: " + c.PostForm("textanswer"))
 
-		learning.InitialContent(mostDueCard, randomCards).Render(c.Request.Context(), c.Writer)
+		learning.InitialContent(mostDueCard, randomCards, deck).Render(c.Request.Context(), c.Writer)
 	})
 
 	r.GET("/deck/:deckID/review", func(c *gin.Context) {
@@ -552,7 +563,7 @@ func main() {
 
 		reviewCards, err := gormDB.getDueReviewCardsByDeckID(deck.ID)
 		if err != nil || len(reviewCards) == 0 {
-			review.NoneLeft().Render(c.Request.Context(), c.Writer)
+			review.NoneLeft(deck).Render(c.Request.Context(), c.Writer)
 			return
 		}
 
@@ -568,7 +579,7 @@ func main() {
 			log.Print(err)
 		}
 
-		review.InitialContent(mostDueCard, randomCards).Render(c.Request.Context(), c.Writer)
+		review.InitialContent(mostDueCard, randomCards, deck).Render(c.Request.Context(), c.Writer)
 	})
 
 	r.POST("/card/:cardID/review", func(c *gin.Context) {
@@ -587,13 +598,22 @@ func main() {
 			return
 		}
 
+		deck, err := (*gormDB).getDeckByID(card.DeckID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.String(http.StatusNotFound, "deck not found")
+			} else {
+				c.String(http.StatusInternalServerError, "error fetching deck")
+			}
+		}
+
 		correct := IsAnswerCorrectInLowerCase(c.PostForm("textanswer"), card.Answer)
 
 		gormDB.updateReviewCardByID(card.ID, correct)
 
 		reviewCards, err := gormDB.getDueReviewCardsByDeckID(card.DeckID)
 		if err != nil || len(reviewCards) == 0 {
-			review.NoneLeft().Render(c.Request.Context(), c.Writer)
+			review.NoneLeft(deck).Render(c.Request.Context(), c.Writer)
 			return
 		}
 
@@ -610,7 +630,7 @@ func main() {
 			log.Print(err)
 		}
 
-		review.InitialContent(mostDueCard, randomCards).Render(c.Request.Context(), c.Writer)
+		review.InitialContent(mostDueCard, randomCards, deck).Render(c.Request.Context(), c.Writer)
 	})
 
 	r.GET("/deck/:deckID", func(c *gin.Context) {

@@ -1,16 +1,20 @@
 package createcard
 
-import "webproject/models"
-import "fmt"
+import ("webproject/models"
+"fmt"
+"webproject/components")
 
 templ Load(cards []models.Card, deck models.Deck) {
 
 	<html>
         <head>
             <title>Create a deck</title>
-            <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+            @components.Imports()
         </head>
         <body>
+        @components.Navbar()
+
+        <pre>Back to <a href={ templ.URL(fmt.Sprintf("/deck/%d", deck.ID)) }>{ deck.Name }</a></pre>
             <div id="create">
                 <form autocomplete="off">
                 <label for="question">Question</label><br>

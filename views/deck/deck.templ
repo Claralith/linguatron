@@ -3,6 +3,7 @@ package deck
 import (
 	"fmt"
 	"webproject/models"
+	"webproject/components"
 )
 
 
@@ -12,9 +13,11 @@ templ DeckView(deck models.Deck) {
 			<title>Deck: { deck.Name }</title>
 			<meta charset="UTF-8"/>
             <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-			<script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
+           @components.Imports()
 		</head>
 		<body>
+			@components.Navbar()
+
 			<h1>Deck: { deck.Name }</h1>
 			<p>Deck ID: { fmt.Sprintf("%d", deck.ID) }</p>
 
@@ -37,11 +40,15 @@ templ DeckView(deck models.Deck) {
                     Card Browser
                     </a>
                 </li>
+                <li>
+                                    <a href={ templ.URL(fmt.Sprintf("/deck/%d/batchadd", deck.ID)) }>
+                                    Add batch of cards
+                                    </a>
+                                </li>
 			</ul>
 
             <hr/>
 			<br/>
-			<a href="/decks">Back to All Decks</a>
 		</body>
 	</html>
 }

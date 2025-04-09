@@ -1,16 +1,20 @@
 package learning
 
-import "webproject/models"
-import "fmt"
+import ("webproject/models"
+"fmt"
+"webproject/components")
 
-templ InitialContent(question models.Card, questions []models.Card) {
+templ InitialContent(question models.Card, questions []models.Card, deck models.Deck) {
     <html>
         <head>
-            <title>Go + Gin + Templ</title>
-            <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+            <title>Learning for {deck.Name}</title>
+           @components.Imports()
         </head>
         <body>
             <div id="content">
+
+            @components.Navbar()
+            <a href={ templ.URL(fmt.Sprintf("/deck/%d", question.DeckID)) }>Back to {deck.Name}</a>
         <h2>Learning</h2>
                 @Question(question, questions)
                 @TextInput(question)
@@ -43,10 +47,17 @@ templ MultipleChoice(question models.Card, questions []models.Card) {
 }
 
 
-templ NoneLeft() {
+templ NoneLeft(deck models.Deck) {
+
+ <head>
+            <title>Learning for {deck.Name}</title>
+           @components.Imports()
+        </head>
+
     <div id="content">
+    @components.Navbar()
         <h2>You're done!</h2>
         <p>You've completed all learning cards in this deck for now 🎉</p>
-        <a href="/decks">← Back to Decks</a>
+        <a href={ templ.URL(fmt.Sprintf("/deck/%d", deck.ID)) }>← Back to {deck.Name}</a>
     </div>
 }
