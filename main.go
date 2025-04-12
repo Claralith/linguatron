@@ -271,7 +271,22 @@ func main() {
 
 	r.POST("/createdeck", func(c *gin.Context) {
 		deckname := c.PostForm("deckname")
-		(*gormDB).createDeck(deckname)
+
+		if strings.TrimSpace(deckname) == "" {
+			createdeck.Error("Deck name cannot be empty").Render(c.Request.Context(), c.Writer)
+			return
+		}
+
+		var deck models.Deck
+
+		deck.Name = deckname
+		err := gormDB.db.Create(&deck).Error
+		if err != nil {
+			createdeck.Error("Failed to create deck. Please try again. Error: "+err.Error()).Render(c.Request.Context(), c.Writer)
+			return
+		}
+
+		createdeck.Created(deck).Render(c.Request.Context(), c.Writer)
 	})
 
 	r.GET("/deck/:deckID/createcard", func(c *gin.Context) {

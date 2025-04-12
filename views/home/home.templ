@@ -8,12 +8,14 @@ templ HomePage() {
             <title>Go + Gin + Templ</title>
             @components.Imports()
         </head>
-        <body>
+        <body class="bg-light text-dark">
         @components.Navbar()
-            <div id="content">
-            <h1>Welcome to Linguatron</h1>
-            <pre>Go to <a href="/decks">Decks</a> to get started </pre>
+        <div class="container justify-content-center align-items-center">
+            <div class="text-center">
+                <h1>Welcome to Linguatron</h1>
+                <p class="lead">Go to <a href="/decks">Decks</a> to get started</p>
             </div>
+        </div>
         </body>
     </html>
 }
