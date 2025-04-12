@@ -13,21 +13,23 @@ templ LoadDecks(decks []models.Deck) {
             <title>List of decks</title>
             @components.Imports()
         </head>
-        <body>
+        <body class="bg-light text-dark">
         @components.Navbar()
+        <div class="container mt-4">
         <h1>Decks</h1>
 
      			if len(decks) == 0 {
 				<p>No decks found. <a href="/createdeck">Create one?</a></p>
 			} else {
-				<ul>
+				<div class="row row-cols-1 g-2">
 					for _, deck := range decks {
-						<li>
-							<a href={ templ.URL(fmt.Sprintf("/deck/%d", deck.ID)) }>{ deck.Name }</a>
-						</li>
+						<div class="col">
+							<a class="btn w-100 btn-secondary" href={ templ.URL(fmt.Sprintf("/deck/%d", deck.ID)) }>{ deck.Name }</a>
+						</div>
 					}
-				</ul>
+				</div>
 			}
+        </div>
         </body>
     </html>
 }

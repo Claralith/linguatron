@@ -540,6 +540,25 @@ func main() {
 
 		fmt.Print("text answer form's text was: " + c.PostForm("textanswer"))
 
+		learning.AnswerFeedback(correct, card.Answer, deck, mostDueCard, randomCards).Render(c.Request.Context(), c.Writer)
+	})
+
+	r.GET("/card/:cardID/nextlearning", func(c *gin.Context) {
+		cardIdStr := c.Param("cardID")
+		cardId, _ := strconv.ParseUint(cardIdStr, 10, 32)
+
+		card, _ := gormDB.getCardByID(uint(cardId))
+		deck, _ := gormDB.getDeckByID(card.DeckID)
+
+		learningCards, _ := gormDB.getLearningCardsByDeckID(deck.ID)
+		if len(learningCards) == 0 {
+			learning.NoneLeft(deck).Render(c.Request.Context(), c.Writer)
+			return
+		}
+
+		mostDueCard, _ := getMostDueCard(learningCards)
+		randomCards, _ := gormDB.getShuffledChoicesForCard(deck.ID, mostDueCard)
+
 		learning.InitialContent(mostDueCard, randomCards, deck).Render(c.Request.Context(), c.Writer)
 	})
 
@@ -629,6 +648,25 @@ func main() {
 			c.String(http.StatusBadRequest, "failed to get random cards")
 			log.Print(err)
 		}
+
+		review.AnswerFeedback(correct, card.Answer, deck, mostDueCard, randomCards).Render(c.Request.Context(), c.Writer)
+	})
+
+	r.GET("/card/:cardID/nextreview", func(c *gin.Context) {
+		cardIdStr := c.Param("cardID")
+		cardId, _ := strconv.ParseUint(cardIdStr, 10, 32)
+
+		card, _ := gormDB.getCardByID(uint(cardId))
+		deck, _ := gormDB.getDeckByID(card.DeckID)
+
+		reviewCards, _ := gormDB.getDueReviewCardsByDeckID(deck.ID)
+		if len(reviewCards) == 0 {
+			review.NoneLeft(deck).Render(c.Request.Context(), c.Writer)
+			return
+		}
+
+		mostDueCard, _ := getMostDueCard(reviewCards)
+		randomCards, _ := gormDB.getShuffledChoicesForCard(deck.ID, mostDueCard)
 
 		review.InitialContent(mostDueCard, randomCards, deck).Render(c.Request.Context(), c.Writer)
 	})

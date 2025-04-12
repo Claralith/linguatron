@@ -1,0 +1,36 @@
+package components
+
+import (
+	"fmt"
+	"webproject/models"
+)
+
+templ AnswerFeedback(
+	correct bool,
+	correctAnswer string,
+	deck models.Deck,
+	nextCard models.Card,
+	nextChoices []models.Card,
+	postRoutePrefix string,
+) {
+	<div id="content" class="text-center">
+		@Navbar()
+		<a href={ templ.URL(fmt.Sprintf("/deck/%d", deck.ID)) }>← Back to {deck.Name}</a>
+
+		if correct {
+			<h2 class="text-success">✅ Correct!</h2>
+		} else {
+			<h2 class="text-danger">❌ Incorrect</h2>
+			<p>The correct answer was: <strong>{ correctAnswer }</strong></p>
+		}
+
+		<button
+			class="btn btn-primary mt-3"
+			hx-get={ string(templ.URL(fmt.Sprintf("/card/%d/next%s", nextCard.ID, postRoutePrefix))) }
+			hx-target="#content"
+			hx-swap="outerHTML"
+		>
+			Next Card →
+		</button>
+	</div>
+}

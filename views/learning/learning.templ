@@ -4,46 +4,11 @@ import ("webproject/models"
 "fmt"
 "webproject/components")
 
-templ InitialContent(question models.Card, questions []models.Card, deck models.Deck) {
-    <html>
-        <head>
-            <title>Learning for {deck.Name}</title>
-           @components.Imports()
-        </head>
-        <body>
-            <div id="content">
-
-            @components.Navbar()
-            <a href={ templ.URL(fmt.Sprintf("/deck/%d", question.DeckID)) }>Back to {deck.Name}</a>
-        <h2>Learning</h2>
-                @Question(question, questions)
-                @TextInput(question)
-                @MultipleChoice(question, questions)
-            </div>
-        </body>
-    </html>
-}
 
 
-templ Question(question models.Card, questions []models.Card) {
-	<h2>{question.Question}</h2>
-}
-
-templ TextInput(question models.Card) {
-	<div id="textinput">
-			<label for="textanswer">Your Answer</label>
-			<input type="text" id="textanswer" name="textanswer" autocomplete="off" hx-post={string(templ.URL(fmt.Sprintf("/card/%d/learning", question.ID)))} hx-trigger="keyup[keyCode==13]" hx-target="#content" hx-swap="outerHTML">
-	</div>
-}
-
-templ MultipleChoice(question models.Card, questions []models.Card) {
-	<div id="multiplechoice">
-	for _, question2 := range questions {
-		<button value={question2.Answer} hx-post={string(templ.URL(fmt.Sprintf("/card/%d/learning", question.ID)))}
-			hx-target={"#content"}
-			hx-swap="outerHTML" name="textanswer" type="button">{question2.Answer}</button>
-	}
-	</div>
+templ InitialContent(card models.Card, choices []models.Card, deck models.Deck) {
+	@components.Imports()
+	@components.SessionPage("Learning", card, choices, deck, "learning")
 }
 
 
@@ -60,4 +25,8 @@ templ NoneLeft(deck models.Deck) {
         <p>You've completed all learning cards in this deck for now 🎉</p>
         <a href={ templ.URL(fmt.Sprintf("/deck/%d", deck.ID)) }>← Back to {deck.Name}</a>
     </div>
+}
+
+templ AnswerFeedback(correct bool, correctAnswer string, deck models.Deck, nextCard models.Card, nextChoices []models.Card) {
+	@components.AnswerFeedback(correct, correctAnswer, deck, nextCard, nextChoices, "learning")
 }

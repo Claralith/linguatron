@@ -11,44 +11,49 @@ templ DeckView(deck models.Deck) {
 	<html>
 		<head>
 			<title>Deck: { deck.Name }</title>
-			<meta charset="UTF-8"/>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
            @components.Imports()
 		</head>
-		<body>
+		<body class="bg-light text-dark">
 			@components.Navbar()
 
-			<h1>Deck: { deck.Name }</h1>
-			<p>Deck ID: { fmt.Sprintf("%d", deck.ID) }</p>
+			<div class="container mt-4">
+			<h1 class="mb-3">Deck: { deck.Name }</h1>
+			<p class="text-muted">Deck ID: { fmt.Sprintf("%d", deck.ID) }</p>
 
             <hr/>
 
-            <h2>Actions</h2>
-			<ul>
-				<li>
-					<a href={ templ.URL(fmt.Sprintf("/deck/%d/learning", deck.ID)) }>
+            <h2 class="mt-4">Actions</h2>
+
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-2 g-3 mt-2">
+
+            <div class="col">
+					<a class="btn w-100 btn-success" href={ templ.URL(fmt.Sprintf("/deck/%d/learning", deck.ID)) }>
 						Start Learning Session
 					</a>
-				</li>
-				<li>
-					<a href={ templ.URL(fmt.Sprintf("/deck/%d/review", deck.ID)) }>
+
+            </div>
+            <div class="col">
+					<a class="btn w-100 btn-primary" href={ templ.URL(fmt.Sprintf("/deck/%d/review", deck.ID)) }>
 						Start Review Session
 					</a>
-				</li>
-                <li>
-                    <a href={ templ.URL(fmt.Sprintf("/deck/%d/createcard", deck.ID)) }>
+            </div>
+
+            <div class="col">
+                    <a class="btn w-100 btn-secondary" href={ templ.URL(fmt.Sprintf("/deck/%d/createcard", deck.ID)) }>
                     Card Browser
                     </a>
-                </li>
-                <li>
-                                    <a href={ templ.URL(fmt.Sprintf("/deck/%d/batchadd", deck.ID)) }>
-                                    Add batch of cards
-                                    </a>
-                                </li>
-			</ul>
+            </div>
+            <div class="col">
+                        <a class="btn w-100 btn-secondary" href={ templ.URL(fmt.Sprintf("/deck/%d/batchadd", deck.ID)) }>
+                         Add batch of cards
+                        </a>
+            </div>
+
+
+            </div>
 
             <hr/>
-			<br/>
+			</div>
 		</body>
 	</html>
 }

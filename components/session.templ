@@ -1,0 +1,73 @@
+package components
+
+import ("webproject/models"
+"fmt"
+)
+
+templ SessionPage(
+	title string,
+	card models.Card,
+	choices []models.Card,
+	deck models.Deck,
+	postRoutePrefix string, // "learning" or "review"
+) {
+ <head>
+            <title>{title} for {deck.Name}</title>
+            @Imports()
+        </head>
+
+
+	<div id="content">
+		@Navbar()
+		<div class="container mt-4">
+		<a href={ templ.URL(fmt.Sprintf("/deck/%d", deck.ID)) }>← Back to {deck.Name}</a>
+		<h2>{ title }</h2>
+
+		@SessionQuestion(card)
+
+		@SessionTextInput(card, postRoutePrefix)
+
+		@SessionMultipleChoice(card, choices, postRoutePrefix)
+		</div>
+	</div>
+}
+
+
+templ SessionQuestion(card models.Card) {
+	<h2>{ card.Question }</h2>
+}
+
+templ SessionTextInput(card models.Card, postRoutePrefix string) {
+	<div id="textinput" class="mb-3">
+		<label for="textanswer">Your Answer</label>
+		<input
+			type="text"
+			id="textanswer"
+			name="textanswer"
+			autocomplete="off"
+			hx-post={ string(templ.URL(fmt.Sprintf("/card/%d/%s", card.ID, postRoutePrefix))) }
+			hx-trigger="keyup[keyCode==13]"
+			hx-target="#content"
+			hx-swap="outerHTML"
+			class="form-control"
+		>
+	</div>
+}
+
+templ SessionMultipleChoice(card models.Card, choices []models.Card, postRoutePrefix string) {
+	<div id="multiplechoice" class="d-grid gap-2">
+		for _, choice := range choices {
+			<button
+				type="button"
+				class="btn btn-outline-primary"
+				name="textanswer"
+				value={ choice.Answer }
+				hx-post={ string(templ.URL(fmt.Sprintf("/card/%d/%s", card.ID, postRoutePrefix))) }
+				hx-target="#content"
+				hx-swap="outerHTML"
+			>
+				{ choice.Answer }
+			</button>
+		}
+	</div>
+}
