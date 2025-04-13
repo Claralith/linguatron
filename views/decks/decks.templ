@@ -17,19 +17,26 @@ templ LoadDecks(decks []models.Deck) {
         @components.Navbar()
         <div class="container mt-4">
         <h1>Decks</h1>
-
-     			if len(decks) == 0 {
-				<p>No decks found. <a href="/createdeck">Create one?</a></p>
-			} else {
-				<div class="row row-cols-1 g-2">
-					for _, deck := range decks {
-						<div class="col">
-							<a class="btn w-100 btn-secondary" href={ templ.URL(fmt.Sprintf("/deck/%d", deck.ID)) }>{ deck.Name }</a>
-						</div>
-					}
-				</div>
-			}
+        <div id="decklist">
+        @Decks(decks)
+        </div>
         </div>
         </body>
     </html>
+}
+
+templ Decks(decks []models.Deck) {
+
+if len(decks) == 0 {
+<p>No decks found. <a href="/createdeck">Create one?</a></p>
+} else {
+<div class="row row-cols-1 g-2">
+for _, deck := range decks {
+<div class="col">
+<a class="btn w-100 btn-secondary" href={ templ.URL(fmt.Sprintf("/deck/%d", deck.ID)) }>{ deck.Name }</a>
+<button hx-delete={string(templ.URL(fmt.Sprintf("/deck/%d/delete", deck.ID)))} hx-target="#decklist" hx-swap="outerHTML" hx-confirm="Are you sure you want to delete this deck and all of its cards?">Delete</button>
+</div>
+}
+</div>
+}
 }
