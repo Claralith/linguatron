@@ -26,7 +26,7 @@ templ LoadDecks(decks []models.Deck) {
 }
 
 templ Decks(decks []models.Deck) {
-
+	<div id="decklist">
 if len(decks) == 0 {
 <p>No decks found. <a href="/createdeck">Create one?</a></p>
 } else {
@@ -39,4 +39,5 @@ for _, deck := range decks {
 }
 </div>
 }
+	</div>
 }
