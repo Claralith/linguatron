@@ -4,99 +4,105 @@ import ("webproject/models"
 "fmt"
 "webproject/components")
 
+
 templ Load(cards []models.Card, deck models.Deck) {
-
 	<html>
-        <head>
-            <title>Create a deck</title>
-            @components.Imports()
-        </head>
-        <body>
-        @components.Navbar()
+		<head>
+			<title>Create a deck</title>
+			@components.Imports()
+		</head>
+		<body class="bg-light text-dark">
+			@components.Navbar()
 
-        <pre>Back to <a href={ templ.URL(fmt.Sprintf("/deck/%d", deck.ID)) }>{ deck.Name }</a></pre>
-            <div id="create">
-                <form autocomplete="off">
-                <label for="question">Question</label><br>
-                <input type="text" id="question" name="question">
-                <br>
-                <label for="answer">Answer</label><br>
-                <input type="text" id="answer" name="answer">
-                <button hx-post={string(templ.URL(fmt.Sprintf("/deck/%d/createcard", deck.ID)))} hx-trigger="click" hx-target="#cardstable" hx-swap="outerHTML">Create Card</button>
-                </form>
-            </div>
+			<div class="container mt-4">
+				<a href={ templ.URL(fmt.Sprintf("/deck/%d", deck.ID)) } class="btn btn-outline-secondary mb-3">
+					← Back to {deck.Name}
+				</a>
 
-            <div id="existingcards">
-            <h2>Cards</h2>
-            @RenderTable(cards)
-            </div>
-        </body>
-    </html>
+				<div id="create" class="card mb-4">
+					<div class="card-body">
+						<h4 class="card-title">Create Card</h4>
+						<form class="row g-3" autocomplete="off">
+							<div class="col-md-6">
+								<label for="question" class="form-label">Question</label>
+								<input type="text" class="form-control" id="question" name="question" />
+							</div>
+							<div class="col-md-6">
+								<label for="answer" class="form-label">Answer</label>
+								<input type="text" class="form-control" id="answer" name="answer" />
+							</div>
+							<div class="col-12">
+								<button class="btn btn-primary"
+									hx-post={string(templ.URL(fmt.Sprintf("/deck/%d/createcard", deck.ID)))}
+									hx-trigger="click"
+									hx-target="#cardstable"
+									hx-swap="outerHTML">
+									Create Card
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+
+				<h2>Cards</h2>
+				@RenderTable(cards)
+			</div>
+		</body>
+	</html>
 }
+
 
 templ RenderTable(cards []models.Card) {
-    <table id="cardstable">
-    <tr>
-    <th>ID</th>
-    <th>Question</th>
-    <th>Answer</th>
-    </tr>
-					for _, card := range cards {
-					<tr id={"card-" + fmt.Sprint(card.ID)}>
-						<td>{fmt.Sprintf("%d", card.ID)}</td>
-						<td><input name="question"
-						 value={card.Question}
-						 hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
-						 hx-trigger="blur change"
-						 hx-include="closest tr"
-					     hx-target={"#card-" + fmt.Sprint(card.ID)}
-						 hx-swap="outerHTML"
-						autocomplete="off"
-							/></td>
-
-						<td><input name="answer"
-							value={card.Answer}
-							hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
-							hx-trigger="blur change"
-							hx-include="closest tr"
-							hx-target={"#card-" + fmt.Sprint(card.ID)}
-							hx-swap="outerHTML"
-							autocomplete="off"
-						 />
-							<td>
-								<button hx-delete={string(templ.URL(fmt.Sprintf("/card/%d/delete", card.ID)))}
-									hx-target={"#cardstable"}
-									hx-swap="outerHTML"
-									hx-confirm="Are you sure you want to delete this card?">Delete</button>
-							</td>	</td>
-					</tr>
-					}
-    </table>
+	<table id="cardstable" class="table table-bordered table-hover table-sm align-middle">
+		<thead class="table-light">
+			<tr>
+				<th scope="col">ID</th>
+				<th scope="col">Question</th>
+				<th scope="col">Answer</th>
+				<th scope="col">Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			for _, card := range cards {
+				@UpdateRow(card)
+			}
+		</tbody>
+	</table>
 }
+
+
 
 templ UpdateRow(card models.Card) {
 	<tr id={"card-" + fmt.Sprint(card.ID)}>
-<td>{fmt.Sprintf("%d", card.ID)}</td>
-<td><input name="question"
-value={card.Question}
-hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
-hx-trigger="blur change"
-hx-include="closest tr"
-hx-target={"#card-" + fmt.Sprint(card.ID)}
-hx-swap="outerHTML" autocomplete="off" /></td>
-
-<td><input name="answer"
-value={card.Answer}
-hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
-hx-trigger="blur change"
-hx-include="closest tr"
-hx-target={"#card-" + fmt.Sprint(card.ID)}
-hx-swap="outerHTML" autocomplete="off"
-/><td>
-								<button hx-delete={string(templ.URL(fmt.Sprintf("/card/%d/delete", card.ID)))}
-									hx-target={"#cardstable"}
-									hx-swap="outerHTML"
-									hx-confirm="Are you sure you want to delete this card?">Delete</button>
-							</td></td>
+		<th scope="row">{fmt.Sprintf("%d", card.ID)}</th>
+		<td>
+			<input name="question" class="form-control form-control-sm"
+				value={card.Question}
+				hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
+				hx-trigger="blur change"
+				hx-include="closest tr"
+				hx-target={"#card-" + fmt.Sprint(card.ID)}
+				hx-swap="outerHTML"
+				autocomplete="off" />
+		</td>
+		<td>
+			<input name="answer" class="form-control form-control-sm"
+				value={card.Answer}
+				hx-put={string(templ.URL(fmt.Sprintf("/card/%d/edit", card.ID)))}
+				hx-trigger="blur change"
+				hx-include="closest tr"
+				hx-target={"#card-" + fmt.Sprint(card.ID)}
+				hx-swap="outerHTML"
+				autocomplete="off" />
+		</td>
+		<td>
+			<button class="btn btn-sm btn-danger"
+				hx-delete={string(templ.URL(fmt.Sprintf("/card/%d/delete", card.ID)))}
+				hx-target="#cardstable"
+				hx-swap="outerHTML"
+				hx-confirm="Are you sure you want to delete this card?">
+				Delete
+			</button>
+		</td>
 	</tr>
 }
