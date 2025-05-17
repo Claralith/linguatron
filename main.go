@@ -748,6 +748,83 @@ func main() {
 		decks.LoadDecks(selectedDecks).Render(c.Request.Context(), c.Writer)
 	})
 
+	//JSON API
+
+	r.GET("/api/decks", func(c *gin.Context) {
+
+		selectedDecks, err := (*gormDB).selectAllDecks()
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to fetch decks: " + err.Error(),
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"decks": selectedDecks,
+		})
+	})
+
+	r.GET("/api/deck/:deckID", func(c *gin.Context) {
+
+		deckIdStr := c.Param("deckID")
+		deckId, err := strconv.ParseUint(deckIdStr, 10, 32)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid deck ID")
+			log.Print(err)
+			return
+		}
+
+		selectedDeck, err := (*gormDB).getDeckByID(uint(deckId))
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to fetch deck: " + err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"deck": selectedDeck,
+		})
+	})
+
+	r.POST("/api/createdeck", func(c *gin.Context) {
+		var json struct {
+			Name string `json:"name"`
+		}
+
+		if err := c.BindJSON(&json); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Invalid JSON",
+			})
+			return
+		}
+		deckName := strings.TrimSpace(json.Name)
+		if deckName == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "deck name cannot be empty",
+			})
+		}
+
+		deck := models.Deck{Name: deckName}
+		if err := gormDB.db.Create(&deck).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to create deck: " + err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Deck created successfully",
+			"deck": gin.H{
+				"id":   deck.ID,
+				"name": deck.Name,
+			},
+		})
+
+	})
+
 	log.Println("Server starting on http://localhost:3030")
 	if err := r.Run(":3030"); err != nil {
 		log.Fatalf("Failed to run server: %v", err)
