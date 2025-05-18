@@ -770,8 +770,10 @@ func main() {
 		deckIdStr := c.Param("deckID")
 		deckId, err := strconv.ParseUint(deckIdStr, 10, 32)
 		if err != nil {
-			c.String(http.StatusBadRequest, "Invalid deck ID")
-			log.Print(err)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Invalid deck ID",
+			})
+			log.Println("Invalid deck ID:", err)
 			return
 		}
 
@@ -822,6 +824,63 @@ func main() {
 				"name": deck.Name,
 			},
 		})
+
+	})
+
+	r.POST("/api/deck/:deckID/createcard", func(c *gin.Context) {
+
+		deckIdStr := c.Param("deckID")
+		deckId, err := strconv.ParseUint(deckIdStr, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Invalid deck ID",
+			})
+			log.Println("Invalid deck ID:", err)
+			return
+		}
+
+		var json struct {
+			Question string `json:"question"`
+			Answer   string `json:"answer"`
+		}
+
+		if err := c.ShouldBindJSON(&json); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "Invalid JSON payload",
+				"details": err.Error(),
+			})
+			log.Println("JSON binding error:", err)
+			return
+		}
+
+		json.Question = strings.TrimSpace(json.Question)
+		json.Answer = strings.TrimSpace(json.Answer)
+
+		if json.Question == "" || json.Answer == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "question or answer cannot be empty",
+			})
+			return
+		}
+
+		card := models.Card{
+			DeckID:        uint(deckId),
+			Question:      json.Question,
+			Answer:        json.Answer,
+			CardCreated:   time.Now().UTC(),
+			ReviewDueDate: time.Now().UTC(),
+		}
+
+		if err := gormDB.db.Create(&card).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to create card",
+				"details": err.Error(),
+			})
+			log.Println("DB CREATE ERROR: ", err)
+			return
+		}
+
+		c.JSON(http.StatusCreated, card)
 
 	})
 
