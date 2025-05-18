@@ -6,5 +6,6 @@ type CardFields struct {
 	ShowOnFront bool
 	ShowOnBack  bool
 	CardID      uint
-	Card        Card `gorm:"constraint:OnDelete:CASCADE;foreignKey:CardID"`
+	Card        Card    `gorm:"constraint:OnDelete:CASCADE;foreignKey:CardID"`
+	Media       []Media `gorm:"foreignKey:FieldID"`
 }

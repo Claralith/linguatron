@@ -260,7 +260,7 @@ func main() {
 		panic("failed to connect database")
 	}
 	gormDB := &GormDB{db: db}
-	db.AutoMigrate(&models.Deck{}, &models.Card{}, &models.CardFields{})
+	db.AutoMigrate(&models.Deck{}, &models.Card{}, &models.CardFields{}, &models.Media{})
 
 	r := gin.Default()
 
