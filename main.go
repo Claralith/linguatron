@@ -884,6 +884,64 @@ func main() {
 
 	})
 
+	r.PUT("/api/card/:cardID/edit", func(c *gin.Context) {
+		cardIdStr := c.Param("cardID")
+		cardId, err := strconv.ParseUint(cardIdStr, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid card ID",
+			})
+			return
+		}
+
+		var json struct {
+			Question string `json:"question"`
+			Answer   string `json:"answer"`
+		}
+
+		if err := c.ShouldBindJSON(&json); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "invalid JSON payload",
+				"details": err.Error(),
+			})
+			return
+
+		}
+
+		json.Question = strings.TrimSpace(json.Question)
+		json.Answer = strings.TrimSpace(json.Answer)
+
+		if json.Question == "" || json.Answer == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "question or answer can't be empty",
+				"details": err.Error(),
+			})
+			return
+
+		}
+
+		err = gormDB.updateCardByID(uint(cardId), json.Question, json.Answer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "failed to update card",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		card, err := gormDB.getCardByID(uint(cardId))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "failed to get card after update",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, card)
+
+	})
+
 	log.Println("Server starting on http://localhost:3030")
 	if err := r.Run(":3030"); err != nil {
 		log.Fatalf("Failed to run server: %v", err)
