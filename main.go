@@ -913,8 +913,7 @@ func main() {
 
 		if json.Question == "" || json.Answer == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error":   "question or answer can't be empty",
-				"details": err.Error(),
+				"error": "question or answer can't be empty",
 			})
 			return
 
@@ -940,6 +939,321 @@ func main() {
 
 		c.JSON(http.StatusOK, card)
 
+	})
+
+	r.DELETE("/api/deck/:deckID", func(c *gin.Context) {
+		deckIdStr := c.Param("deckID")
+		deckId, err := strconv.ParseInt(deckIdStr, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Invalid deck ID",
+			})
+			return
+		}
+
+		err = gormDB.deleteDeckByID(uint(deckId))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to delete deck",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Deck deleted successfully",
+			"deck_id": deckId,
+		})
+	})
+
+	r.GET("/api/deck/:deckID/learning", func(c *gin.Context) {
+		deckIdStr := c.Param("deckID")
+		deckId, err := strconv.ParseInt(deckIdStr, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid deck id",
+			})
+			return
+		}
+
+		deck, err := gormDB.getDeckByID(uint(deckId))
+		if err != nil {
+
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": "Deck not found",
+				})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error":   "Error fetching deck",
+					"details": err.Error(),
+				})
+				return
+			}
+		}
+
+		learningCards, err := gormDB.getLearningCardsByDeckID(deck.ID)
+		if err != nil || len(learningCards) == 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "No learning cards available in this deck",
+				"deck":    deck,
+				"cards":   []any{},
+			})
+			return
+		}
+
+		mostDueCard, err := getMostDueCard(learningCards)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Could not determine most due card",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		randomCards, err := gormDB.getShuffledChoicesForCard(deck.ID, mostDueCard)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "failed to random cards",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"deck":                     deck,
+			"most_due_card":            mostDueCard,
+			"random_cards":             randomCards,
+			"number_of_learning_cards": len(learningCards),
+		})
+	})
+
+	r.POST("/api/card/:cardID/learning", func(c *gin.Context) {
+		cardIdStr := c.Param("cardID")
+		cardId, err := strconv.ParseUint(cardIdStr, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid card ID"})
+			return
+		}
+
+		var payload struct {
+			Answer string `json:"answer"`
+		}
+
+		if err := c.BindJSON(&payload); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON payload"})
+			return
+		}
+
+		card, err := gormDB.getCardByID(uint(cardId))
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Card not found"})
+			return
+		}
+
+		deck, err := gormDB.getDeckByID(card.DeckID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Deck not found"})
+			return
+		}
+
+		var correct bool
+		if payload.Answer != "" {
+			correct = IsAnswerCorrectInLowerCase(payload.Answer, card.Answer)
+			gormDB.updateLearningCardByID(card.ID, correct)
+		}
+
+		learningCards, err := gormDB.getLearningCardsByDeckID(deck.ID)
+		if err != nil || len(learningCards) == 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"done":    true,
+				"message": "No more learning cards in this deck",
+			})
+			return
+		}
+
+		mostDueCard, err := getMostDueCard(learningCards)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Error while trying to get most due card",
+				"details": err.Error(),
+			})
+
+			return
+		}
+
+		randomCards, err := gormDB.getShuffledChoicesForCard(deck.ID, mostDueCard)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Error while trying to get multiple choice options",
+				"details": err.Error(),
+			})
+
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"done":      false,
+			"correct":   correct,
+			"next_card": mostDueCard,
+			"choices":   randomCards,
+		})
+
+	})
+
+	r.GET("/api/deck/:deckID/review", func(c *gin.Context) {
+		deckIdStr := c.Param("deckID")
+		deckID, err := strconv.ParseUint(deckIdStr, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid deck ID"})
+			return
+		}
+
+		deck, err := gormDB.getDeckByID(uint(deckID))
+		if err != nil {
+			status := http.StatusInternalServerError
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				status = http.StatusNotFound
+			}
+			c.JSON(status, gin.H{"error": "Deck not found"})
+			return
+		}
+
+		reviewCards, err := gormDB.getDueReviewCardsByDeckID(deck.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Database error while fetching cards",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		if len(reviewCards) == 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"done":  true,
+				"deck":  deck,
+				"cards": []any{},
+				"msg":   "No review cards that are due in this deck",
+			})
+			return
+		}
+
+		mostDue, err := getMostDueCard(reviewCards)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Error while trying to fetch most due card",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		choices, err := gormDB.getShuffledChoicesForCard(deck.ID, mostDue)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Error while fetching multiple choice options",
+				"details": err.Error(),
+			})
+
+			return
+		}
+
+		c.JSON(http.StatusFound, gin.H{
+			"done":        false,
+			"deck":        deck,
+			"next_card":   mostDue,
+			"choices":     choices,
+			"cards_total": len(reviewCards),
+		})
+
+	})
+
+	r.POST("/api/card/:cardID/review", func(c *gin.Context) {
+		cardIDstr := c.Param("cardID")
+		cardID, err := strconv.ParseUint(cardIDstr, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid card ID"})
+			return
+		}
+
+		card, err := gormDB.getCardByID(uint(cardID))
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Card not found"})
+			return
+		}
+		deck, err := gormDB.getDeckByID(card.DeckID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Deck not found"})
+			return
+		}
+
+		var payload struct {
+			Answer string `json:"answer"`
+		}
+
+		if err := c.BindJSON(&payload); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON payload"})
+			return
+		}
+
+		var correct bool
+		if strings.TrimSpace(payload.Answer) != "" {
+			correct = IsAnswerCorrectInLowerCase(payload.Answer, card.Answer)
+			err := gormDB.updateReviewCardByID(card.ID, correct)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error":   "Error while trying to update review card",
+					"details": err.Error(),
+				})
+				return
+			}
+		}
+
+		reviewCards, err := gormDB.getDueReviewCardsByDeckID(deck.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Error while trying to get due review cards",
+				"details": err.Error(),
+			})
+
+			return
+		}
+
+		if len(reviewCards) == 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"done":    true,
+				"correct": correct,
+				"msg":     "No review cards due in this deck",
+			})
+			return
+		}
+
+		mostDue, err := getMostDueCard(reviewCards)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Error while trying to get most due card",
+				"details": err.Error(),
+			})
+
+			return
+		}
+
+		choices, err := gormDB.getShuffledChoicesForCard(deck.ID, mostDue)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Error while trying to get multiple choice options",
+				"details": err.Error(),
+			})
+
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"done":       false,
+			"correct":    correct,
+			"next_card":  mostDue,
+			"choices":    choices,
+			"cards_left": len(reviewCards),
+		})
 	})
 
 	log.Println("Server starting on http://localhost:3030")
