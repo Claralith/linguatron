@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
-	"math/rand/v2"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+	"webproject/database"
+	"webproject/spacedrepetition"
 	"webproject/views/batchadd"
 	"webproject/views/createcard"
 	"webproject/views/createdeck"
@@ -42,224 +42,12 @@ type Database interface {
 	deleteCardByID(card models.Card) error
 }
 
-type GormDB struct {
-	db *gorm.DB
-}
-
-func (g *GormDB) createDeck(name string) error {
-	var deck models.Deck
-	deck.Name = name
-	return g.db.Create(&deck).Error
-}
-
-func (g *GormDB) createCard(card models.Card) error {
-	return g.db.Create(&card).Error
-}
-
-func (g *GormDB) getCardByID(id uint) (models.Card, error) {
-	var card models.Card
-	err := g.db.First(&card, id).Error
-	return card, err
-}
-
-func (g *GormDB) getAllCardsByDeckID(id uint) ([]models.Card, error) {
-	var cards []models.Card
-	err := g.db.Where("deck_id = ?", id).Find(&cards).Error
-	return cards, err
-}
-
-func (g *GormDB) getShuffledChoicesForCard(deckID uint, mostDueCard models.Card) ([]models.Card, error) {
-	var count int64
-	cardCountError := g.db.Model(&models.Card{}).Where("deck_id = ?", deckID).Count(&count).Error
-	if cardCountError != nil {
-		return nil, cardCountError
-	}
-
-	var limit int
-
-	if count > 1 && count < 5 {
-		limit = int(count - 1) //as many false answers as possible
-	} else if count >= 5 {
-		limit = 5
-	} else {
-		limit = 0
-	}
-
-	var falseAnswers []models.Card
-	err := g.db.Where("deck_id = ? AND id != ?", deckID, mostDueCard.ID).
-		Order("RANDOM()").
-		Limit(limit).
-		Find(&falseAnswers).Error
-	if err != nil {
-		return nil, err
-	}
-
-	falseandCorrect := append(falseAnswers, mostDueCard)
-	rand.Shuffle(len(falseandCorrect), func(i, j int) {
-		falseandCorrect[i], falseandCorrect[j] = falseandCorrect[j], falseandCorrect[i]
-	})
-
-	return falseandCorrect, err
-}
-
-func (g *GormDB) getLearningCardsByDeckID(id uint) ([]models.Card, error) {
-	var cards []models.Card
-	err := g.db.Where("deck_id = ? AND stage = ?", id, "learning").Find(&cards).Error
-	return cards, err
-}
-func (g *GormDB) getReviewCardsByDeckID(id uint) ([]models.Card, error) {
-	var cards []models.Card
-	err := g.db.Where("deck_id = ? AND stage = ?", id, "review").Find(&cards).Error
-	return cards, err
-}
-func (g *GormDB) getDueReviewCardsByDeckID(id uint) ([]models.Card, error) {
-	now := time.Now().UTC()
-
-	var cards []models.Card
-	err := g.db.Where("deck_id = ? AND stage = ? AND review_due_date <= ?", id, "review", now).Find(&cards).Error
-	return cards, err
-}
-
-func (g *GormDB) getDeckByID(id uint) (models.Deck, error) {
-	var deck models.Deck
-	err := g.db.First(&deck, id).Error
-	return deck, err
-}
-
-func (g *GormDB) selectAllDecks() ([]models.Deck, error) {
-	var decks []models.Deck
-	err := g.db.Find(&decks).Error
-	return decks, err
-}
-
-func (g *GormDB) updateLearningCardByID(id uint, correct bool) error {
-	card, _ := g.getCardByID(id)
-
-	now := time.Now().UTC()
-
-	minuteAfter := now.Add(1 * time.Minute)
-
-	dayAfter := now.Add(24 * time.Hour)
-
-	card.LastReviewDate = now
-	if correct {
-		card.Correct++
-		if card.Ease > 1 {
-			card.Ease = uint(getNextEaseLevel(int(card.Ease), 1))
-			card.Stage = "review"
-			card.ReviewDueDate = dayAfter
-
-		} else {
-			card.Ease = uint(getNextEaseLevel(int(card.Ease), 2))
-			card.ReviewDueDate = minuteAfter
-		}
-	} else {
-		card.Incorrect++
-		card.Ease = 1
-		card.ReviewDueDate = minuteAfter
-	}
-	return g.db.Save(&card).Error
-}
-
-func (g *GormDB) updateReviewCardByID(id uint, correct bool) error {
-	card, _ := g.getCardByID(id)
-
-	now := time.Now().UTC()
-
-	minuteAfter := now.Add(time.Minute * time.Duration(1))
-
-	card.LastReviewDate = now
-	if correct {
-		card.Correct++
-		card.ReviewDueDate = createNextReviewDueDate(int(card.Ease))
-		card.Ease = uint(getNextEaseLevel(int(card.Ease), 2))
-	} else {
-		card.Incorrect++
-		card.ReviewDueDate = minuteAfter
-		if card.Ease != 1 {
-			card.Lapses++
-			card.Ease = 1
-		}
-	}
-
-	return g.db.Save(&card).Error
-}
-
-func (g *GormDB) updateCardByID(id uint, question string, answer string) error {
-	card, _ := g.getCardByID(id)
-	card.Question = question
-	card.Answer = answer
-
-	return g.db.Save(&card).Error
-}
-
-func (g *GormDB) deleteCardByID(id uint) error {
-	card, err := g.getCardByID(id)
-	if err != nil {
-		return err
-	}
-
-	return g.db.Delete(card).Error
-}
-
-func (g *GormDB) deleteDeckByID(id uint) error {
-	card, err := g.getDeckByID(id)
-	if err != nil {
-		return err
-	}
-
-	return g.db.Delete(card).Error
-}
-
-func IsAnswerCorrectInLowerCase(userAnswer string, databaseAnswer string) bool {
-	return strings.EqualFold(strings.TrimSpace(userAnswer), (strings.TrimSpace(databaseAnswer)))
-}
-
-func getMostDueCard(cards []models.Card) (models.Card, error) {
-	if len(cards) == 0 {
-		return models.Card{}, fmt.Errorf("no cards")
-	}
-
-	mostDueCard := cards[0]
-
-	for i := 1; i < len(cards); i++ {
-		if cards[i].ReviewDueDate.Before(mostDueCard.ReviewDueDate) {
-			mostDueCard = cards[i]
-		}
-	}
-
-	return mostDueCard, nil
-}
-func isCardsNotEmpty(cards []models.Card) bool {
-	if len(cards) > 0 {
-		return true
-	} else {
-		return false
-	}
-}
-
-func getNextEaseLevel(currentEase int, growthfactor float64) int {
-	nextEase := int(math.Ceil(float64(currentEase) * growthfactor))
-
-	return nextEase
-}
-
-func createNextReviewDueDate(ease int) time.Time {
-
-	t := time.Now().UTC()
-	hours := ease * 24
-	duration := time.Duration(hours) * time.Hour
-
-	return t.Add(duration)
-
-}
-
 func main() {
 	db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect database")
 	}
-	gormDB := &GormDB{db: db}
+	gormDB := &database.GormDB{DB: db}
 	db.AutoMigrate(&models.Deck{}, &models.Card{}, &models.CardFields{}, &models.Media{})
 
 	r := gin.Default()
@@ -289,7 +77,7 @@ func main() {
 		var deck models.Deck
 
 		deck.Name = deckname
-		err := gormDB.db.Create(&deck).Error
+		err := gormDB.DB.Create(&deck).Error
 		if err != nil {
 			createdeck.Error("Failed to create deck. Please try again. Error: "+err.Error()).Render(c.Request.Context(), c.Writer)
 			return
@@ -307,9 +95,9 @@ func main() {
 			return
 		}
 
-		gormDB.deleteDeckByID(uint(deckId))
+		gormDB.DeleteDeckByID(uint(deckId))
 
-		selectedDecks, err := (*gormDB).selectAllDecks()
+		selectedDecks, err := (*gormDB).SelectAllDecks()
 		if err != nil {
 			log.Print(err)
 		}
@@ -328,7 +116,7 @@ func main() {
 			return
 		}
 
-		deck, err := (*gormDB).getDeckByID(uint(deckId))
+		deck, err := (*gormDB).GetDeckByID(uint(deckId))
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.String(http.StatusNotFound, "deck not found")
@@ -337,7 +125,7 @@ func main() {
 			}
 		}
 
-		cards, err := gormDB.getAllCardsByDeckID(uint(deckId))
+		cards, err := gormDB.GetAllCardsByDeckID(uint(deckId))
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.String(http.StatusNotFound, "cards not found")
@@ -367,9 +155,9 @@ func main() {
 		card.CardCreated = time.Now().UTC()
 		card.ReviewDueDate = time.Now().UTC()
 
-		(*gormDB).createCard(card)
+		(*gormDB).CreateCard(card)
 
-		cards, err := gormDB.getAllCardsByDeckID(uint(deckId))
+		cards, err := gormDB.GetAllCardsByDeckID(uint(deckId))
 		if err != nil {
 			c.String(http.StatusBadRequest, "Invalid deck ID")
 			log.Print(err)
@@ -389,7 +177,7 @@ func main() {
 			return
 		}
 
-		deck, err := (*gormDB).getDeckByID(uint(deckId))
+		deck, err := (*gormDB).GetDeckByID(uint(deckId))
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.String(http.StatusNotFound, "deck not found")
@@ -411,7 +199,7 @@ func main() {
 			return
 		}
 
-		deck, err := (*gormDB).getDeckByID(uint(deckId))
+		deck, err := (*gormDB).GetDeckByID(uint(deckId))
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.String(http.StatusNotFound, "deck not found")
@@ -437,7 +225,7 @@ func main() {
 				CardCreated:   time.Now().UTC(),
 				ReviewDueDate: time.Now().UTC(),
 			}
-			gormDB.createCard(card)
+			gormDB.CreateCard(card)
 			NumberOfCards++
 		}
 
@@ -454,16 +242,16 @@ func main() {
 			return
 		}
 
-		card, err := gormDB.getCardByID(uint(cardId))
+		card, err := gormDB.GetCardByID(uint(cardId))
 		if err != nil {
 			c.String(http.StatusBadRequest, "Invalid card ID")
 			log.Print(err)
 			return
 		}
 
-		gormDB.deleteCardByID(card.ID)
+		gormDB.DeleteCardByID(card.ID)
 
-		cards, err := gormDB.getAllCardsByDeckID(uint(card.DeckID))
+		cards, err := gormDB.GetAllCardsByDeckID(uint(card.DeckID))
 		if err != nil {
 			c.String(http.StatusBadRequest, "Invalid deck ID")
 			log.Print(err)
@@ -483,9 +271,9 @@ func main() {
 			return
 		}
 
-		gormDB.updateCardByID(uint(cardId), c.PostForm("question"), c.PostForm("answer"))
+		gormDB.UpdateCardByID(uint(cardId), c.PostForm("question"), c.PostForm("answer"))
 
-		card, err := gormDB.getCardByID(uint(cardId))
+		card, err := gormDB.GetCardByID(uint(cardId))
 		if err != nil {
 			c.String(http.StatusBadRequest, "card not found")
 			log.Print(err)
@@ -504,7 +292,7 @@ func main() {
 			return
 		}
 
-		deck, err := (*gormDB).getDeckByID(uint(deckId))
+		deck, err := (*gormDB).GetDeckByID(uint(deckId))
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.String(http.StatusNotFound, "deck not found")
@@ -513,19 +301,19 @@ func main() {
 			}
 		}
 
-		learningCards, err := gormDB.getLearningCardsByDeckID(deck.ID)
+		learningCards, err := gormDB.GetLearningCardsByDeckID(deck.ID)
 		if err != nil || len(learningCards) == 0 {
 			learning.NoneLeft(deck).Render(c.Request.Context(), c.Writer)
 			return
 		}
 
-		mostDueCard, err := getMostDueCard(learningCards)
+		mostDueCard, err := spacedrepetition.GetMostDueCard(learningCards)
 		if err != nil {
 			c.String(http.StatusBadRequest, "not enough learning cards?")
 			log.Print(err)
 		}
 
-		randomCards, err := gormDB.getShuffledChoicesForCard(deck.ID, mostDueCard)
+		randomCards, err := gormDB.GetShuffledChoicesForCard(deck.ID, mostDueCard)
 		if err != nil {
 			c.String(http.StatusBadRequest, "failed to get random cards")
 			log.Print(err)
@@ -543,18 +331,18 @@ func main() {
 			return
 		}
 
-		card, err := gormDB.getCardByID(uint(cardId))
+		card, err := gormDB.GetCardByID(uint(cardId))
 		if err != nil {
 			c.String(http.StatusBadRequest, "card not found")
 			log.Print(err)
 			return
 		}
 
-		correct := IsAnswerCorrectInLowerCase(c.PostForm("textanswer"), card.Answer)
+		correct := spacedrepetition.IsAnswerCorrectInLowerCase(c.PostForm("textanswer"), card.Answer)
 
-		gormDB.updateLearningCardByID(card.ID, correct)
+		gormDB.UpdateLearningCardByID(card.ID, correct)
 
-		deck, err := (*gormDB).getDeckByID(card.DeckID)
+		deck, err := (*gormDB).GetDeckByID(card.DeckID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.String(http.StatusNotFound, "deck not found")
@@ -563,20 +351,20 @@ func main() {
 			}
 		}
 
-		learningCards, err := gormDB.getLearningCardsByDeckID(card.DeckID)
+		learningCards, err := gormDB.GetLearningCardsByDeckID(card.DeckID)
 		if err != nil || len(learningCards) == 0 {
 			learning.NoneLeft(deck).Render(c.Request.Context(), c.Writer)
 			return
 		}
 
-		mostDueCard, err := getMostDueCard(learningCards)
+		mostDueCard, err := spacedrepetition.GetMostDueCard(learningCards)
 		if err != nil {
 			c.String(http.StatusBadRequest, "invalid deck id?")
 			log.Print(err)
 			return
 		}
 
-		randomCards, err := gormDB.getShuffledChoicesForCard(card.DeckID, mostDueCard)
+		randomCards, err := gormDB.GetShuffledChoicesForCard(card.DeckID, mostDueCard)
 		if err != nil {
 			c.String(http.StatusBadRequest, "failed to get random cards")
 			log.Print(err)
@@ -591,17 +379,17 @@ func main() {
 		cardIdStr := c.Param("cardID")
 		cardId, _ := strconv.ParseUint(cardIdStr, 10, 32)
 
-		card, _ := gormDB.getCardByID(uint(cardId))
-		deck, _ := gormDB.getDeckByID(card.DeckID)
+		card, _ := gormDB.GetCardByID(uint(cardId))
+		deck, _ := gormDB.GetDeckByID(card.DeckID)
 
-		learningCards, _ := gormDB.getLearningCardsByDeckID(deck.ID)
+		learningCards, _ := gormDB.GetLearningCardsByDeckID(deck.ID)
 		if len(learningCards) == 0 {
 			learning.NoneLeft(deck).Render(c.Request.Context(), c.Writer)
 			return
 		}
 
-		mostDueCard, _ := getMostDueCard(learningCards)
-		randomCards, _ := gormDB.getShuffledChoicesForCard(deck.ID, mostDueCard)
+		mostDueCard, _ := spacedrepetition.GetMostDueCard(learningCards)
+		randomCards, _ := gormDB.GetShuffledChoicesForCard(deck.ID, mostDueCard)
 
 		learning.InitialContent(mostDueCard, randomCards, deck).Render(c.Request.Context(), c.Writer)
 	})
@@ -615,7 +403,7 @@ func main() {
 			return
 		}
 
-		deck, err := (*gormDB).getDeckByID(uint(deckId))
+		deck, err := (*gormDB).GetDeckByID(uint(deckId))
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.String(http.StatusNotFound, "deck not found")
@@ -624,19 +412,19 @@ func main() {
 			}
 		}
 
-		reviewCards, err := gormDB.getDueReviewCardsByDeckID(deck.ID)
+		reviewCards, err := gormDB.GetDueReviewCardsByDeckID(deck.ID)
 		if err != nil || len(reviewCards) == 0 {
 			review.NoneLeft(deck).Render(c.Request.Context(), c.Writer)
 			return
 		}
 
-		mostDueCard, err := getMostDueCard(reviewCards)
+		mostDueCard, err := spacedrepetition.GetMostDueCard(reviewCards)
 		if err != nil {
 			c.String(http.StatusBadRequest, "not enough review cards?")
 			log.Print(err)
 		}
 
-		randomCards, err := gormDB.getShuffledChoicesForCard(deck.ID, mostDueCard)
+		randomCards, err := gormDB.GetShuffledChoicesForCard(deck.ID, mostDueCard)
 		if err != nil {
 			c.String(http.StatusBadRequest, "failed to get random cards")
 			log.Print(err)
@@ -654,14 +442,14 @@ func main() {
 			return
 		}
 
-		card, err := gormDB.getCardByID(uint(cardId))
+		card, err := gormDB.GetCardByID(uint(cardId))
 		if err != nil {
 			c.String(http.StatusBadRequest, "card not found")
 			log.Print(err)
 			return
 		}
 
-		deck, err := (*gormDB).getDeckByID(card.DeckID)
+		deck, err := (*gormDB).GetDeckByID(card.DeckID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.String(http.StatusNotFound, "deck not found")
@@ -670,24 +458,24 @@ func main() {
 			}
 		}
 
-		correct := IsAnswerCorrectInLowerCase(c.PostForm("textanswer"), card.Answer)
+		correct := spacedrepetition.IsAnswerCorrectInLowerCase(c.PostForm("textanswer"), card.Answer)
 
-		gormDB.updateReviewCardByID(card.ID, correct)
+		gormDB.UpdateReviewCardByID(card.ID, correct)
 
-		reviewCards, err := gormDB.getDueReviewCardsByDeckID(card.DeckID)
+		reviewCards, err := gormDB.GetDueReviewCardsByDeckID(card.DeckID)
 		if err != nil || len(reviewCards) == 0 {
 			review.NoneLeft(deck).Render(c.Request.Context(), c.Writer)
 			return
 		}
 
-		mostDueCard, err := getMostDueCard(reviewCards)
+		mostDueCard, err := spacedrepetition.GetMostDueCard(reviewCards)
 		if err != nil {
 			c.String(http.StatusBadRequest, "invalid deck id?")
 			log.Print(err)
 			return
 		}
 
-		randomCards, err := gormDB.getShuffledChoicesForCard(card.DeckID, mostDueCard)
+		randomCards, err := gormDB.GetShuffledChoicesForCard(card.DeckID, mostDueCard)
 		if err != nil {
 			c.String(http.StatusBadRequest, "failed to get random cards")
 			log.Print(err)
@@ -700,17 +488,17 @@ func main() {
 		cardIdStr := c.Param("cardID")
 		cardId, _ := strconv.ParseUint(cardIdStr, 10, 32)
 
-		card, _ := gormDB.getCardByID(uint(cardId))
-		deck, _ := gormDB.getDeckByID(card.DeckID)
+		card, _ := gormDB.GetCardByID(uint(cardId))
+		deck, _ := gormDB.GetDeckByID(card.DeckID)
 
-		reviewCards, _ := gormDB.getDueReviewCardsByDeckID(deck.ID)
+		reviewCards, _ := gormDB.GetDueReviewCardsByDeckID(deck.ID)
 		if len(reviewCards) == 0 {
 			review.NoneLeft(deck).Render(c.Request.Context(), c.Writer)
 			return
 		}
 
-		mostDueCard, _ := getMostDueCard(reviewCards)
-		randomCards, _ := gormDB.getShuffledChoicesForCard(deck.ID, mostDueCard)
+		mostDueCard, _ := spacedrepetition.GetMostDueCard(reviewCards)
+		randomCards, _ := gormDB.GetShuffledChoicesForCard(deck.ID, mostDueCard)
 
 		review.InitialContent(mostDueCard, randomCards, deck).Render(c.Request.Context(), c.Writer)
 	})
@@ -724,7 +512,7 @@ func main() {
 			return
 		}
 
-		deckData, err := gormDB.getDeckByID(uint(deckId))
+		deckData, err := gormDB.GetDeckByID(uint(deckId))
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.String(http.StatusNotFound, "Deck not found")
@@ -740,7 +528,7 @@ func main() {
 
 	r.GET("/decks", func(c *gin.Context) {
 
-		selectedDecks, err := (*gormDB).selectAllDecks()
+		selectedDecks, err := (*gormDB).SelectAllDecks()
 		if err != nil {
 			log.Print(err)
 		}
@@ -752,7 +540,7 @@ func main() {
 
 	r.GET("/api/decks", func(c *gin.Context) {
 
-		selectedDecks, err := (*gormDB).selectAllDecks()
+		selectedDecks, err := (*gormDB).SelectAllDecks()
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -777,7 +565,7 @@ func main() {
 			return
 		}
 
-		selectedDeck, err := (*gormDB).getDeckByID(uint(deckId))
+		selectedDeck, err := (*gormDB).GetDeckByID(uint(deckId))
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -810,7 +598,7 @@ func main() {
 		}
 
 		deck := models.Deck{Name: deckName}
-		if err := gormDB.db.Create(&deck).Error; err != nil {
+		if err := gormDB.DB.Create(&deck).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Failed to create deck: " + err.Error(),
 			})
@@ -871,7 +659,7 @@ func main() {
 			ReviewDueDate: time.Now().UTC(),
 		}
 
-		if err := gormDB.db.Create(&card).Error; err != nil {
+		if err := gormDB.DB.Create(&card).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Failed to create card",
 				"details": err.Error(),
@@ -919,7 +707,7 @@ func main() {
 
 		}
 
-		err = gormDB.updateCardByID(uint(cardId), json.Question, json.Answer)
+		err = gormDB.UpdateCardByID(uint(cardId), json.Question, json.Answer)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "failed to update card",
@@ -928,7 +716,7 @@ func main() {
 			return
 		}
 
-		card, err := gormDB.getCardByID(uint(cardId))
+		card, err := gormDB.GetCardByID(uint(cardId))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "failed to get card after update",
@@ -951,7 +739,7 @@ func main() {
 			return
 		}
 
-		err = gormDB.deleteDeckByID(uint(deckId))
+		err = gormDB.DeleteDeckByID(uint(deckId))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Failed to delete deck",
@@ -976,7 +764,7 @@ func main() {
 			return
 		}
 
-		deck, err := gormDB.getDeckByID(uint(deckId))
+		deck, err := gormDB.GetDeckByID(uint(deckId))
 		if err != nil {
 
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -992,7 +780,7 @@ func main() {
 			}
 		}
 
-		learningCards, err := gormDB.getLearningCardsByDeckID(deck.ID)
+		learningCards, err := gormDB.GetLearningCardsByDeckID(deck.ID)
 		if err != nil || len(learningCards) == 0 {
 			c.JSON(http.StatusOK, gin.H{
 				"message": "No learning cards available in this deck",
@@ -1002,7 +790,7 @@ func main() {
 			return
 		}
 
-		mostDueCard, err := getMostDueCard(learningCards)
+		mostDueCard, err := spacedrepetition.GetMostDueCard(learningCards)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Could not determine most due card",
@@ -1011,7 +799,7 @@ func main() {
 			return
 		}
 
-		randomCards, err := gormDB.getShuffledChoicesForCard(deck.ID, mostDueCard)
+		randomCards, err := gormDB.GetShuffledChoicesForCard(deck.ID, mostDueCard)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "failed to random cards",
@@ -1045,13 +833,13 @@ func main() {
 			return
 		}
 
-		card, err := gormDB.getCardByID(uint(cardId))
+		card, err := gormDB.GetCardByID(uint(cardId))
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Card not found"})
 			return
 		}
 
-		deck, err := gormDB.getDeckByID(card.DeckID)
+		deck, err := gormDB.GetDeckByID(card.DeckID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Deck not found"})
 			return
@@ -1059,11 +847,11 @@ func main() {
 
 		var correct bool
 		if payload.Answer != "" {
-			correct = IsAnswerCorrectInLowerCase(payload.Answer, card.Answer)
-			gormDB.updateLearningCardByID(card.ID, correct)
+			correct = spacedrepetition.IsAnswerCorrectInLowerCase(payload.Answer, card.Answer)
+			gormDB.UpdateLearningCardByID(card.ID, correct)
 		}
 
-		learningCards, err := gormDB.getLearningCardsByDeckID(deck.ID)
+		learningCards, err := gormDB.GetLearningCardsByDeckID(deck.ID)
 		if err != nil || len(learningCards) == 0 {
 			c.JSON(http.StatusOK, gin.H{
 				"done":    true,
@@ -1072,7 +860,7 @@ func main() {
 			return
 		}
 
-		mostDueCard, err := getMostDueCard(learningCards)
+		mostDueCard, err := spacedrepetition.GetMostDueCard(learningCards)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Error while trying to get most due card",
@@ -1082,7 +870,7 @@ func main() {
 			return
 		}
 
-		randomCards, err := gormDB.getShuffledChoicesForCard(deck.ID, mostDueCard)
+		randomCards, err := gormDB.GetShuffledChoicesForCard(deck.ID, mostDueCard)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Error while trying to get multiple choice options",
@@ -1109,7 +897,7 @@ func main() {
 			return
 		}
 
-		deck, err := gormDB.getDeckByID(uint(deckID))
+		deck, err := gormDB.GetDeckByID(uint(deckID))
 		if err != nil {
 			status := http.StatusInternalServerError
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1119,7 +907,7 @@ func main() {
 			return
 		}
 
-		reviewCards, err := gormDB.getDueReviewCardsByDeckID(deck.ID)
+		reviewCards, err := gormDB.GetDueReviewCardsByDeckID(deck.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Database error while fetching cards",
@@ -1138,7 +926,7 @@ func main() {
 			return
 		}
 
-		mostDue, err := getMostDueCard(reviewCards)
+		mostDue, err := spacedrepetition.GetMostDueCard(reviewCards)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Error while trying to fetch most due card",
@@ -1147,7 +935,7 @@ func main() {
 			return
 		}
 
-		choices, err := gormDB.getShuffledChoicesForCard(deck.ID, mostDue)
+		choices, err := gormDB.GetShuffledChoicesForCard(deck.ID, mostDue)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Error while fetching multiple choice options",
@@ -1175,12 +963,12 @@ func main() {
 			return
 		}
 
-		card, err := gormDB.getCardByID(uint(cardID))
+		card, err := gormDB.GetCardByID(uint(cardID))
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Card not found"})
 			return
 		}
-		deck, err := gormDB.getDeckByID(card.DeckID)
+		deck, err := gormDB.GetDeckByID(card.DeckID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Deck not found"})
 			return
@@ -1197,8 +985,8 @@ func main() {
 
 		var correct bool
 		if strings.TrimSpace(payload.Answer) != "" {
-			correct = IsAnswerCorrectInLowerCase(payload.Answer, card.Answer)
-			err := gormDB.updateReviewCardByID(card.ID, correct)
+			correct = spacedrepetition.IsAnswerCorrectInLowerCase(payload.Answer, card.Answer)
+			err := gormDB.UpdateReviewCardByID(card.ID, correct)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"error":   "Error while trying to update review card",
@@ -1208,7 +996,7 @@ func main() {
 			}
 		}
 
-		reviewCards, err := gormDB.getDueReviewCardsByDeckID(deck.ID)
+		reviewCards, err := gormDB.GetDueReviewCardsByDeckID(deck.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Error while trying to get due review cards",
@@ -1227,7 +1015,7 @@ func main() {
 			return
 		}
 
-		mostDue, err := getMostDueCard(reviewCards)
+		mostDue, err := spacedrepetition.GetMostDueCard(reviewCards)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Error while trying to get most due card",
@@ -1237,7 +1025,7 @@ func main() {
 			return
 		}
 
-		choices, err := gormDB.getShuffledChoicesForCard(deck.ID, mostDue)
+		choices, err := gormDB.GetShuffledChoicesForCard(deck.ID, mostDue)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Error while trying to get multiple choice options",
