@@ -188,4 +188,39 @@ func RegisterSetupRoutes(r *gin.Engine, gormDB *database.GormDB) {
 			"deck_id": deckId,
 		})
 	})
+
+	r.GET("/api/deck/:deckID/cards", func(c *gin.Context) {
+		deckIdStr := c.Param("deckID")
+		deckId, err := strconv.ParseInt(deckIdStr, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Invalid deck ID",
+			})
+			return
+		}
+
+		deck, err := (*gormDB).GetDeckByID(uint(deckId))
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to fetch deck: " + err.Error(),
+			})
+			return
+		}
+
+		cards, err := gormDB.GetAllCardsByDeckID(deck.ID)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"error":   "No cards in this deck",
+				"details": err.Error(),
+				"cards":   []any{},
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"cards": cards,
+		})
+
+	})
 }
