@@ -223,4 +223,30 @@ func RegisterSetupRoutes(r *gin.Engine, gormDB *database.GormDB) {
 		})
 
 	})
+
+	r.DELETE("/api/card/:cardID/delete", func(c *gin.Context) {
+		cardIdStr := c.Param("cardID")
+		cardId, err := strconv.ParseUint(cardIdStr, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid card ID",
+			})
+			return
+		}
+
+		err = gormDB.DeleteCardByID(uint(cardId))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to delete card",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Card deleted successfully",
+			"card_id": cardId,
+		})
+
+	})
 }
