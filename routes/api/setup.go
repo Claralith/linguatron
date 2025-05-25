@@ -249,4 +249,44 @@ func RegisterSetupRoutes(r *gin.Engine, gormDB *database.GormDB) {
 		})
 
 	})
+
+	r.POST("/api/deck/:deckID/batchadd", func(c *gin.Context) {
+		deckIdStr := c.Param("deckID")
+		deckId, err := strconv.ParseUint(deckIdStr, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid deck ID"})
+			return
+		}
+
+		var json struct {
+			Lines []string `json:"lines"`
+		}
+		if err := c.ShouldBindJSON(&json); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON", "details": err.Error()})
+			return
+		}
+
+		var numberOfCards int
+		for _, line := range json.Lines {
+			parts := strings.Split(line, "|;")
+			if len(parts) != 2 {
+				continue
+			}
+			card := models.Card{
+				DeckID:        uint(deckId),
+				Question:      strings.TrimSpace(parts[0]),
+				Answer:        strings.TrimSpace(parts[1]),
+				CardCreated:   time.Now().UTC(),
+				ReviewDueDate: time.Now().UTC(),
+			}
+			if err := gormDB.CreateCard(card); err == nil {
+				numberOfCards++
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":           "Batch add completed",
+			"cards_added_count": numberOfCards,
+		})
+	})
 }
