@@ -268,7 +268,7 @@ func RegisterSetupRoutes(r *gin.Engine, gormDB *database.GormDB) {
 
 		var numberOfCards int
 		for _, line := range json.Lines {
-			parts := strings.Split(line, "|;")
+			parts := strings.Split(line, ";")
 			if len(parts) != 2 {
 				continue
 			}
@@ -279,8 +279,16 @@ func RegisterSetupRoutes(r *gin.Engine, gormDB *database.GormDB) {
 				CardCreated:   time.Now().UTC(),
 				ReviewDueDate: time.Now().UTC(),
 			}
-			if err := gormDB.CreateCard(card); err == nil {
+			err := gormDB.CreateCard(card)
+
+			if err == nil {
 				numberOfCards++
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error":   "There was an error adding batch of cards",
+					"details": err.Error(),
+				})
+				return
 			}
 		}
 
