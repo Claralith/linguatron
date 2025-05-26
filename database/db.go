@@ -152,10 +152,11 @@ func (g *GormDB) UpdateReviewCardByID(id uint, correct bool) error {
 	return g.DB.Save(&card).Error
 }
 
-func (g *GormDB) UpdateCardByID(id uint, question string, answer string) error {
+func (g *GormDB) UpdateCardByID(id uint, question string, answer string, extra string) error {
 	card, _ := g.GetCardByID(id)
 	card.Question = question
 	card.Answer = answer
+	card.Extra = extra
 
 	return g.DB.Save(&card).Error
 }

@@ -4,7 +4,6 @@ import (
 	"log"
 	"webproject/database"
 	"webproject/routes"
-	"webproject/views/home"
 
 	"webproject/models"
 
@@ -36,7 +35,7 @@ func main() {
 		panic("failed to connect database")
 	}
 	gormDB := &database.GormDB{DB: db}
-	db.AutoMigrate(&models.Deck{}, &models.Card{}, &models.CardFields{}, &models.Media{})
+	db.AutoMigrate(&models.Deck{}, &models.Card{})
 
 	r := gin.Default()
 
@@ -49,14 +48,6 @@ func main() {
 	}))
 
 	r.Static("/static", "./static")
-
-	r.GET("/", func(c *gin.Context) {
-
-		c.Header("Content-Type", "text/html; charset=utf-8")
-
-		home.HomePage().Render(c.Request.Context(), c.Writer)
-
-	})
 
 	routes.RegisterAll(r, gormDB)
 

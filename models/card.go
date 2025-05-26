@@ -15,5 +15,7 @@ type Card struct {
 	ReviewDueDate  time.Time
 	Question       string
 	Answer         string
-	Fields         []CardFields `gorm:"foreignKey:CardID"`
+	Extra          string
+	Audio          string
+	Image          string
 }

@@ -65,6 +65,7 @@ func RegisterSetupRoutes(r *gin.Engine, gormDB *database.GormDB) {
 		var json struct {
 			Question string `json:"question"`
 			Answer   string `json:"answer"`
+			Extra    string `json:"extra"`
 		}
 
 		if err := c.ShouldBindJSON(&json); err != nil {
@@ -90,6 +91,7 @@ func RegisterSetupRoutes(r *gin.Engine, gormDB *database.GormDB) {
 			DeckID:        uint(deckId),
 			Question:      json.Question,
 			Answer:        json.Answer,
+			Extra:         json.Extra,
 			CardCreated:   time.Now().UTC(),
 			ReviewDueDate: time.Now().UTC(),
 		}
@@ -99,7 +101,6 @@ func RegisterSetupRoutes(r *gin.Engine, gormDB *database.GormDB) {
 				"error":   "Failed to create card",
 				"details": err.Error(),
 			})
-			log.Println("DB CREATE ERROR: ", err)
 			return
 		}
 
@@ -120,6 +121,7 @@ func RegisterSetupRoutes(r *gin.Engine, gormDB *database.GormDB) {
 		var json struct {
 			Question string `json:"question"`
 			Answer   string `json:"answer"`
+			Extra    string `json:"extra"`
 		}
 
 		if err := c.ShouldBindJSON(&json); err != nil {
@@ -142,7 +144,7 @@ func RegisterSetupRoutes(r *gin.Engine, gormDB *database.GormDB) {
 
 		}
 
-		err = gormDB.UpdateCardByID(uint(cardId), json.Question, json.Answer)
+		err = gormDB.UpdateCardByID(uint(cardId), json.Question, json.Answer, json.Extra)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "failed to update card",
