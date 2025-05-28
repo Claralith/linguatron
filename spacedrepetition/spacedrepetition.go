@@ -41,12 +41,10 @@ func GetNextEaseLevel(currentEase int, growthfactor float64) int {
 	return nextEase
 }
 
+// Used for cards already in review
 func CreateNextReviewDueDate(ease int) time.Time {
-
-	t := time.Now().UTC()
-	hours := ease * 24
-	duration := time.Duration(hours) * time.Hour
-
-	return t.Add(duration)
-
+	// Base review delay
+	base := 4.0 // hours
+	delay := time.Duration(base*math.Pow(float64(ease), 1.1)) * time.Hour
+	return time.Now().UTC().Add(delay)
 }

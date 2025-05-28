@@ -87,6 +87,16 @@ func (g *GormDB) GetDueReviewCardsByDeckID(id uint) ([]models.Card, error) {
 	return cards, err
 }
 
+func (g *GormDB) GetFirstXCards(deckID uint, limit int, cardStage string) ([]models.Card, error) {
+	var cards []models.Card
+	err := g.DB.
+		Where("deck_id = ? AND stage = ?", deckID, cardStage).
+		Order("review_due_date ASC").
+		Limit(limit).
+		Find(&cards).Error
+	return cards, err
+}
+
 func (g *GormDB) GetDeckByID(id uint) (models.Deck, error) {
 	var deck models.Deck
 	err := g.DB.First(&deck, id).Error
@@ -103,46 +113,44 @@ func (g *GormDB) UpdateLearningCardByID(id uint, correct bool) error {
 	card, _ := g.GetCardByID(id)
 
 	now := time.Now().UTC()
-
-	minuteAfter := now.Add(1 * time.Minute)
-
-	dayAfter := now.Add(24 * time.Hour)
+	shortDelay := now.Add(1 * time.Minute)
+	initialReviewDelay := now.Add(4 * time.Hour)
 
 	card.LastReviewDate = now
+
 	if correct {
 		card.Correct++
 		if card.Ease > 1 {
 			card.Ease = uint(spacedrepetition.GetNextEaseLevel(int(card.Ease), 1))
 			card.Stage = "review"
-			card.ReviewDueDate = dayAfter
-
+			card.ReviewDueDate = initialReviewDelay
 		} else {
 			card.Ease = uint(spacedrepetition.GetNextEaseLevel(int(card.Ease), 2))
-			card.ReviewDueDate = minuteAfter
+			card.ReviewDueDate = shortDelay
 		}
 	} else {
 		card.Incorrect++
 		card.Ease = 1
-		card.ReviewDueDate = minuteAfter
+		card.ReviewDueDate = shortDelay
 	}
+
 	return g.DB.Save(&card).Error
 }
 
 func (g *GormDB) UpdateReviewCardByID(id uint, correct bool) error {
 	card, _ := g.GetCardByID(id)
-
 	now := time.Now().UTC()
-
-	minuteAfter := now.Add(time.Minute * time.Duration(1))
+	shortDelay := now.Add(1 * time.Minute)
 
 	card.LastReviewDate = now
+
 	if correct {
 		card.Correct++
-		card.ReviewDueDate = spacedrepetition.CreateNextReviewDueDate(int(card.Ease))
 		card.Ease = uint(spacedrepetition.GetNextEaseLevel(int(card.Ease), 2))
+		card.ReviewDueDate = spacedrepetition.CreateNextReviewDueDate(int(card.Ease))
 	} else {
 		card.Incorrect++
-		card.ReviewDueDate = minuteAfter
+		card.ReviewDueDate = shortDelay
 		if card.Ease != 1 {
 			card.Lapses++
 			card.Ease = 1

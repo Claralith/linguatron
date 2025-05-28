@@ -1,66 +1,52 @@
 package api
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"webproject/database"
+	"webproject/models"
 	"webproject/spacedrepetition"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 func RegisterReviewRoutes(r *gin.Engine, gormDB *database.GormDB) {
 
 	r.GET("/api/deck/:deckID/review", func(c *gin.Context) {
-		deckIdStr := c.Param("deckID")
-		deckID, err := strconv.ParseUint(deckIdStr, 10, 32)
+		deckIDStr, err := strconv.ParseUint(c.Param("deckID"), 10, 32)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid deck ID"})
 			return
 		}
+		deckID := uint(deckIDStr)
 
-		deck, err := gormDB.GetDeckByID(uint(deckID))
+		deck, err := gormDB.GetDeckByID(deckID)
 		if err != nil {
-			status := http.StatusInternalServerError
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				status = http.StatusNotFound
+			c.JSON(http.StatusNotFound, gin.H{"error": "deck not found"})
+			return
+		}
+
+		limit := defaultSessionLimit
+		if q := c.Query("limit"); q != "" {
+			if n, err := strconv.Atoi(q); err == nil && n > 0 {
+				limit = n
 			}
-			c.JSON(status, gin.H{"error": "Deck not found"})
-			return
 		}
 
-		reviewCards, err := gormDB.GetDueReviewCardsByDeckID(deck.ID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Database error while fetching cards",
-				"details": err.Error(),
-			})
-			return
-		}
-
-		if len(reviewCards) == 0 {
+		cards, err := gormDB.GetFirstXCards(deckID, limit, "review")
+		if err != nil || len(cards) == 0 {
 			c.JSON(http.StatusOK, gin.H{
 				"done":  true,
 				"deck":  deck,
 				"cards": []any{},
-				"msg":   "No review cards that are due in this deck",
+				"msg":   "no review cards are due",
 			})
 			return
 		}
 
-		mostDue, err := spacedrepetition.GetMostDueCard(reviewCards)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Error while trying to fetch most due card",
-				"details": err.Error(),
-			})
-			return
-		}
-
-		choices, err := gormDB.GetShuffledChoicesForCard(deck.ID, mostDue)
+		first := cards[0]
+		choices, err := gormDB.GetShuffledChoicesForCard(deckID, first)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Error while fetching multiple choice options",
@@ -70,87 +56,62 @@ func RegisterReviewRoutes(r *gin.Engine, gormDB *database.GormDB) {
 			return
 		}
 
-		c.JSON(http.StatusFound, gin.H{
-			"done":        false,
-			"deck":        deck,
-			"next_card":   mostDue,
-			"choices":     choices,
-			"cards_total": len(reviewCards),
+		c.JSON(http.StatusOK, gin.H{
+			"deck":    deck,
+			"cards":   cards,
+			"current": first,
+			"choices": choices,
 		})
-
 	})
 
-	r.POST("/api/card/:cardID/review", func(c *gin.Context) {
-		cardIDstr := c.Param("cardID")
-		cardID, err := strconv.ParseUint(cardIDstr, 10, 32)
+	r.POST("/api/deck/:deckID/review", func(c *gin.Context) {
+		deckIDStr, err := strconv.ParseUint(c.Param("deckID"), 10, 32)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid card ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid deck ID"})
 			return
 		}
-
-		card, err := gormDB.GetCardByID(uint(cardID))
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Card not found"})
-			return
-		}
-		deck, err := gormDB.GetDeckByID(card.DeckID)
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Deck not found"})
-			return
-		}
+		deckID := uint(deckIDStr)
 
 		var payload struct {
-			Answer string `json:"answer"`
+			Answer string        `json:"answer"`
+			Cards  []models.Card `json:"cards"`
 		}
-
-		if err := c.BindJSON(&payload); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON payload"})
+		if err := c.ShouldBindJSON(&payload); err != nil || len(payload.Cards) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
 			return
 		}
 
-		var correct bool
+		current := payload.Cards[0]
+
+		correct := false
 		if strings.TrimSpace(payload.Answer) != "" {
-			correct = spacedrepetition.IsAnswerCorrectInLowerCase(payload.Answer, card.Answer)
-			err := gormDB.UpdateReviewCardByID(card.ID, correct)
-			if err != nil {
+			correct = spacedrepetition.IsAnswerCorrectInLowerCase(
+				payload.Answer, current.Answer)
+
+			if err := gormDB.UpdateReviewCardByID(current.ID, correct); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Error while trying to update review card",
+					"error":   "DB update failed",
 					"details": err.Error(),
 				})
 				return
 			}
 		}
 
-		reviewCards, err := gormDB.GetDueReviewCardsByDeckID(deck.ID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Error while trying to get due review cards",
-				"details": err.Error(),
-			})
-
-			return
+		remaining := payload.Cards
+		if correct {
+			remaining = remaining[1:]
 		}
 
-		if len(reviewCards) == 0 {
+		if len(remaining) == 0 {
 			c.JSON(http.StatusOK, gin.H{
 				"done":    true,
 				"correct": correct,
-				"msg":     "No review cards due in this deck",
 			})
 			return
 		}
 
-		mostDue, err := spacedrepetition.GetMostDueCard(reviewCards)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Error while trying to get most due card",
-				"details": err.Error(),
-			})
-
-			return
-		}
-
-		choices, err := gormDB.GetShuffledChoicesForCard(deck.ID, mostDue)
+		next := remaining[0]
+		choices, err := gormDB.GetShuffledChoicesForCard(deckID, next)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Error while trying to get multiple choice options",
@@ -163,9 +124,10 @@ func RegisterReviewRoutes(r *gin.Engine, gormDB *database.GormDB) {
 		c.JSON(http.StatusOK, gin.H{
 			"done":       false,
 			"correct":    correct,
-			"next_card":  mostDue,
+			"cards":      remaining,
+			"current":    next,
 			"choices":    choices,
-			"cards_left": len(reviewCards),
+			"cards_left": len(remaining),
 		})
 	})
 }
