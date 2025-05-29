@@ -109,8 +109,11 @@ func (g *GormDB) SelectAllDecks() ([]models.Deck, error) {
 	return decks, err
 }
 
-func (g *GormDB) UpdateLearningCardByID(id uint, correct bool) error {
-	card, _ := g.GetCardByID(id)
+func (g *GormDB) UpdateLearningCardByID(id uint, correct bool) (models.Card, error) { // Return updated card
+	card, err := g.GetCardByID(id)
+	if err != nil {
+		return models.Card{}, err
+	}
 
 	now := time.Now().UTC()
 	shortDelay := now.Add(1 * time.Minute)
@@ -120,7 +123,7 @@ func (g *GormDB) UpdateLearningCardByID(id uint, correct bool) error {
 
 	if correct {
 		card.Correct++
-		if card.Ease > 1 {
+		if card.Ease > 1 { // Condition for graduating to "review"
 			card.Ease = uint(spacedrepetition.GetNextEaseLevel(int(card.Ease), 1))
 			card.Stage = "review"
 			card.ReviewDueDate = initialReviewDelay
@@ -134,7 +137,8 @@ func (g *GormDB) UpdateLearningCardByID(id uint, correct bool) error {
 		card.ReviewDueDate = shortDelay
 	}
 
-	return g.DB.Save(&card).Error
+	err = g.DB.Save(&card).Error
+	return card, err
 }
 
 func (g *GormDB) UpdateReviewCardByID(id uint, correct bool) error {

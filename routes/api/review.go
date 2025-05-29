@@ -77,18 +77,21 @@ func RegisterReviewRoutes(r *gin.Engine, gormDB *database.GormDB) {
 			Cards  []models.Card `json:"cards"`
 		}
 		if err := c.ShouldBindJSON(&payload); err != nil || len(payload.Cards) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload or no cards provided"})
 			return
 		}
 
-		current := payload.Cards[0]
+		currentCard := payload.Cards[0]
+		remainingCards := payload.Cards
 
-		correct := false
-		if strings.TrimSpace(payload.Answer) != "" {
-			correct = spacedrepetition.IsAnswerCorrectInLowerCase(
-				payload.Answer, current.Answer)
+		answerSubmitted := strings.TrimSpace(payload.Answer) != ""
+		isCorrect := false
 
-			if err := gormDB.UpdateReviewCardByID(current.ID, correct); err != nil {
+		if answerSubmitted {
+			isCorrect = spacedrepetition.IsAnswerCorrectInLowerCase(
+				payload.Answer, currentCard.Answer)
+
+			if err := gormDB.UpdateReviewCardByID(currentCard.ID, isCorrect); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"error":   "DB update failed",
 					"details": err.Error(),
@@ -96,38 +99,44 @@ func RegisterReviewRoutes(r *gin.Engine, gormDB *database.GormDB) {
 				return
 			}
 		}
-
-		remaining := payload.Cards
-		if correct {
-			remaining = remaining[1:]
+		if isCorrect {
+			if len(remainingCards) > 0 {
+				remainingCards = remainingCards[1:]
+			}
+		} else {
+			if len(remainingCards) > 1 {
+				cardToRequeue := remainingCards[0]
+				remainingCards = append(remainingCards[1:], cardToRequeue)
+			}
 		}
 
-		if len(remaining) == 0 {
+		if len(remainingCards) == 0 {
 			c.JSON(http.StatusOK, gin.H{
 				"done":    true,
-				"correct": correct,
+				"correct": isCorrect,
+				"cards":   []any{},
+				"choices": []any{},
 			})
 			return
 		}
 
-		next := remaining[0]
-		choices, err := gormDB.GetShuffledChoicesForCard(deckID, next)
+		nextCardToShow := remainingCards[0]
+		choices, err := gormDB.GetShuffledChoicesForCard(deckID, nextCardToShow)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Error while trying to get multiple choice options",
 				"details": err.Error(),
 			})
-
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"done":       false,
-			"correct":    correct,
-			"cards":      remaining,
-			"current":    next,
+			"correct":    isCorrect,
+			"cards":      remainingCards,
+			"current":    nextCardToShow,
 			"choices":    choices,
-			"cards_left": len(remaining),
+			"cards_left": len(remainingCards),
 		})
 	})
 }
