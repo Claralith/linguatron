@@ -90,7 +90,7 @@ func (g *GormDB) GetDueReviewCardsByDeckID(id uint) ([]models.Card, error) {
 func (g *GormDB) GetFirstXCards(deckID uint, limit int, cardStage string) ([]models.Card, error) {
 	var cards []models.Card
 	err := g.DB.
-		Where("deck_id = ? AND stage = ?", deckID, cardStage).
+		Where("deck_id = ? AND stage = ? AND review_due_date <= ?", deckID, cardStage, time.Now().UTC()).
 		Order("review_due_date ASC").
 		Limit(limit).
 		Find(&cards).Error
